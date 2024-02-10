@@ -1,0 +1,17 @@
+{
+  "name": "qql",
+  "version": "1.0.0",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "jasmine"
+  },
+  "dependencies": {
+    "sqlstring": "^2.3.3",
+    "sqlstring-sqlite": "^0.1.1"
+  },
+  "devDependencies": {
+    "jasmine": "^5.1.0",
+    "sql.js": "^1.10.2"
+  }
+}
