@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "jasmine": "^5.1.0",
-    "sql.js": "^1.10.2"
+    "sql.js": "^1.10.2",
+    "sqlite3": "^5.1.7"
   }
 }

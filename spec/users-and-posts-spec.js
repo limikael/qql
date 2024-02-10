@@ -1,12 +1,14 @@
-import Qql from "../src/Qql.js";
-import {sqljsNew,sqljsCreateRunner} from "./sqljs-util.js";
+import initSqlJs from "sql.js";
+import {qqlSqljs} from "../src/drivers.js";
 
 describe("qql",()=>{
 	it("works",async()=>{
-		let db=await sqljsNew();
+		let SQL=await initSqlJs({
+			locateFile: file=>`node_modules/sql.js/dist/${file}`
+		});
 
-		let qql=new Qql({
-			driver: sqljsCreateRunner(db),
+		let qql=qqlSqljs({
+			sqljs: new SQL.Database(),
 			tables: {
 				users: {
 					fields: {
