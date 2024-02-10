@@ -229,6 +229,15 @@ export default class Table {
 			this.qql.escapeId(query.manyFrom)+` `+
 			this.createWhereClause(query.where);
 
+		if (query.offset && !query.limit)
+			throw new Error("Can't have offset without limit");
+
+		if (query.limit) {
+			s+=" LIMIT "+this.qql.escapeValue(query.limit);
+			if (query.offset)
+				s+=" OFFSET "+this.qql.escapeValue(query.offset);
+		}
+
 		let rows=await this.qql.runQuery(s);
 		rows=rows.map(row=>{
 			for (let fieldName in this.fields) {
