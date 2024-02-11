@@ -42,6 +42,14 @@ export default class Table {
 				exclude=[];
 
 			exclude=[...exclude,...Object.keys(this.where)];
+			for (let ex of exclude) {
+				if (!this.getTable().fields[ex])
+					throw new Error("Unknown field to exclude: "+ex);
+
+				if (this.getTable().fields[ex].pk)
+					throw new Error("Primary key can't be excluded in view");
+			}
+
 			include=include.filter(item=>!exclude.includes(item));
 
 			this.fields={};
@@ -92,6 +100,9 @@ export default class Table {
 					});
 				}
 			}
+
+			if (Object.keys(this.fields).filter(fid=>this.fields[fid].pk).length!=1)
+				throw new Error("There must be exactly one primary key for table "+this.name);
 		}
 	}
 
@@ -112,7 +123,7 @@ export default class Table {
 		return !!this.viewFrom;
 	}
 
-	createWhereClause(where) {
+	createWhereClause(env, where) {
 		if (!where)
 			where={};
 
@@ -134,7 +145,7 @@ export default class Table {
 		if (this.isView()) {
 			let fields=this.getTable().fields;
 			for (let k in this.where)
-				exprs.push(fields[k].createWhereExpression(this.where[k]));
+				exprs.push(fields[k].createWhereExpression(env.substituteVars(this.where[k])));
 		}
 
 		if (!exprs.length)
@@ -237,7 +248,7 @@ export default class Table {
 			"UPDATE "+
 			this.qql.escapeId(this.getTable().name)+" "+
 			"SET "+sets.join(",")+" "+
-			this.createWhereClause(query.where);
+			this.createWhereClause(env,query.where);
 
 		return await this.qql.runQuery(s,"none");
 	}
@@ -249,7 +260,7 @@ export default class Table {
 		let s=
 			"DELETE FROM "+
 			this.qql.escapeId(this.getTable().name)+" "+
-			this.createWhereClause(query.where);
+			this.createWhereClause(env,query.where);
 
 		return await this.qql.runQuery(s,"none");
 	}
@@ -274,7 +285,7 @@ export default class Table {
 		if (this.isView()) {
 			for (let k in this.where) {
 				fieldNames.push(this.qql.escapeId(k));
-				values.push(this.qql.escapeValue(this.where[k]));
+				values.push(this.qql.escapeValue(env.substituteVars(this.where[k])));
 			}
 		}
 
@@ -303,7 +314,7 @@ export default class Table {
 			"SELECT "+select.map(this.qql.escapeId).join(",")+
 			" FROM "+
 			this.qql.escapeId(this.getTable().name)+` `+
-			this.createWhereClause(query.where);
+			this.createWhereClause(env,query.where);
 
 		if (query.offset && !query.limit)
 			throw new Error("Can't have offset without limit");

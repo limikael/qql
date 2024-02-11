@@ -20,4 +20,18 @@ export default class QqlEnv {
 	getRole() {
 		return this.env.role;
 	}
+
+	substituteVars(s) {
+		if (typeof s!="string")
+			return s;
+
+		if (s.charAt(0)!="$")
+			return s;
+
+		s=s.slice(1);
+		if (!this.env.hasOwnProperty(s))
+			throw new Error("Env variable not set: "+s);
+
+		return this.env[s];
+	}
 }
