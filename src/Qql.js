@@ -18,9 +18,9 @@ export default class Qql {
 		this.tables={};
 		for (let tableName in tables)
 			this.tables[tableName]=new Table({
-				...tables[tableName],
 				qql: this, 
-				name: tableName
+				name: tableName,
+				...tables[tableName]
 			});
 	}
 
@@ -28,7 +28,7 @@ export default class Qql {
 		return new QqlEnv({qql: this, env});
 	}
 
-	escapeId(id) {
+	escapeId=(id)=>{
 		switch (this.flavour) {
 			case "sqlite":
 				return sqliteSqlstring.escapeId(id);
@@ -38,7 +38,7 @@ export default class Qql {
 		}
 	}
 
-	escapeValue(value) {
+	escapeValue=(value)=>{
 		if (!["number","string","undefined","boolean"].includes(typeof value)
 				&& value!==null)
 			throw new Error("Not primitive type: "+value);

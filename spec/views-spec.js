@@ -20,13 +20,18 @@ describe("qql views",()=>{
 						id: {type: "integer", pk: true, notnull: true},
 						title: {type: "text"},
 						content: {type: "text"},
-						user: {type: "reference", reference: "users"}
+						user: {type: "reference", reference: "users"},
+						meta: {type: "json"},
+						published: {type: "boolean", notnull: true, default: false}
 					}
 				},
 
-				/*my_posts: {
-					viewFrom: "posts"
-				}*/
+				published_posts: {
+					viewFrom: "posts",
+					where: {
+						published: true,
+					}
+				}
 			}
 		});
 
@@ -35,7 +40,12 @@ describe("qql views",()=>{
 		let uid=await qql({insertInto: "users", set: {name: "micke"}});
 		let uid2=await qql({insertInto: "users", set: {name: "micke2"}});
 		await qql({insertInto: "posts", set: {title: "micke post 1", user_id: uid}});
-		await qql({insertInto: "posts", set: {title: "micke post 2", user_id: uid}});
-		await qql({insertInto: "posts", set: {title: "micke2 post 1", user_id: uid2}});
+		await qql({insertInto: "posts", set: {title: "micke post 2", user_id: uid, published: true}});
+		await qql({insertInto: "posts", set: {title: "micke2 post 1", user_id: uid2, published: true}});
+		await qql({insertInto: "published_posts", set: {title: "micke post 4"}});
+
+		//console.log(await qql({manyFrom: "posts", where: {id: 1}}));
+		//console.log(await qql({manyFrom: "published_posts"}));
+		//console.log(await qql({manyFrom: "published_posts", select: ["published"]}));
 	})
 })

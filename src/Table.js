@@ -4,27 +4,52 @@ import {arrayOnlyUnique, assertAllowedKeys, arrayify} from "./js-util.js";
 import {canonicalizeJoins} from "./qql-util.js";
 
 export default class Table {
-	constructor({name, qql, fields, viewFrom, access, readAccess}) {
+	constructor({name, qql, fields, viewFrom, access, readAccess, where, include, exclude}) {
 		//console.log("role when creating table: "+qql.role);
 
 		this.name=name;
 		this.qql=qql;
 		this.references={};
 
+        if (!access && !readAccess) {
+            access="admin";
+            readAccess="public";
+        }
+
+        this.access=arrayify(access);
+        this.readAccess=[...this.access,...arrayify(readAccess)];
+
 		if (viewFrom) {
 			this.viewFrom=viewFrom;
-			throw new Error("views not implemented yet");
+			this.where=where||{};
+
+			if (this.getTable().isView())
+				throw new Error("Can't create a view from a view");
+
+			for (let k in this.where) {
+				if (!this.getTable().fields[k])
+					throw new Error("Unknown field in where clause for view: "+k);
+
+				let field=this.getTable().fields[k];
+				if (!["text","integer","boolean"].includes(field.type))
+					throw new Error("Can not use type "+field.type+" in where clause for view: "+field.name);
+			}
+
+			if (!include)
+				include=Object.keys(this.getTable().fields);
+
+			if (!exclude)
+				exclude=[];
+
+			exclude=[...exclude,...Object.keys(this.where)];
+			include=include.filter(item=>!exclude.includes(item));
+
+			this.fields={};
+			for (let includeName of include)
+				this.fields[includeName]=this.getTable().fields[includeName];
 		}
 
 		else {
-	        if (!access && !readAccess) {
-	            access="admin";
-	            readAccess="public";
-	        }
-
-	        this.access=arrayify(access);
-	        this.readAccess=[...this.access,...arrayify(readAccess)];
-
 			this.fields={};
 			for (let fieldName in fields) {
 				let fieldSpec=fields[fieldName];
@@ -41,8 +66,6 @@ export default class Table {
 						manyProp: fieldName,
 						manyField: name
 					});
-
-					//console.log(reference.oneProp);
 
 					if (this.references[reference.manyProp] ||
 							referenceTable.references[reference.oneProp]) {
@@ -72,6 +95,13 @@ export default class Table {
 		}
 	}
 
+	getTable() {
+		if (!this.isView())
+			return this;
+
+		return this.qql.tables[this.viewFrom];
+	}
+
 	getPrimaryKeyField() {
 		for (let fieldName in this.fields)
 			if (this.fields[fieldName].pk)
@@ -84,7 +114,7 @@ export default class Table {
 
 	createWhereClause(where) {
 		if (!where)
-			return "";
+			where={};
 
 		let exprs=[];
 		for (let k in where) {
@@ -98,8 +128,17 @@ export default class Table {
 			if (!this.fields[name])
 				throw new Error("No such field: "+name);
 
-			exprs.push(this.fields[name].createWhereExpression(op,where[k]));
+			exprs.push(this.fields[name].createWhereExpression(where[k],op));
 		}
+
+		if (this.isView()) {
+			let fields=this.getTable().fields;
+			for (let k in this.where)
+				exprs.push(fields[k].createWhereExpression(this.where[k]));
+		}
+
+		if (!exprs.length)
+			return "";
 
 		return "WHERE "+exprs.join(" AND ");
 	}
@@ -196,11 +235,10 @@ export default class Table {
 
 		let s=
 			"UPDATE "+
-			this.qql.escapeId(this.name)+" "+
+			this.qql.escapeId(this.getTable().name)+" "+
 			"SET "+sets.join(",")+" "+
 			this.createWhereClause(query.where);
 
-		//console.log(s);
 		return await this.qql.runQuery(s,"none");
 	}
 
@@ -210,7 +248,7 @@ export default class Table {
 
 		let s=
 			"DELETE FROM "+
-			this.qql.escapeId(this.name)+" "+
+			this.qql.escapeId(this.getTable().name)+" "+
 			this.createWhereClause(query.where);
 
 		return await this.qql.runQuery(s,"none");
@@ -233,9 +271,16 @@ export default class Table {
 			values.push(this.qql.escapeValue(representation));
 		}
 
+		if (this.isView()) {
+			for (let k in this.where) {
+				fieldNames.push(this.qql.escapeId(k));
+				values.push(this.qql.escapeValue(this.where[k]));
+			}
+		}
+
 		let s=
 			"INSERT INTO "+
-			this.qql.escapeId(this.name)+" ("+
+			this.qql.escapeId(this.getTable().name)+" ("+
 			fieldNames.join(",")+") VALUES ("+
 			values.join(",")+")";
 
@@ -243,12 +288,21 @@ export default class Table {
 	}
 
 	async queryManyFrom(env, query) {
-		assertAllowedKeys(query,["manyFrom","limit","offset","where","join"]);
+		assertAllowedKeys(query,["select","manyFrom","limit","offset","where","join"]);
 		this.assertReadAccess(env);
 
+		let select=query.select;
+		if (!select)
+			select=Object.keys(this.fields);
+
+		for (let col of select)
+			if (!this.fields[col])
+				throw new Error("No such column: "+col);
+
 		let s=
-			"SELECT * FROM "+
-			this.qql.escapeId(query.manyFrom)+` `+
+			"SELECT "+select.map(this.qql.escapeId).join(",")+
+			" FROM "+
+			this.qql.escapeId(this.getTable().name)+` `+
 			this.createWhereClause(query.where);
 
 		if (query.offset && !query.limit)

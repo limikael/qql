@@ -58,7 +58,7 @@ export default class Field {
 		return eq;
 	}
 
-	createWhereExpression(op, value) {
+	createWhereExpression(value, op) {
 		if (!op)
 			op="=";
 
