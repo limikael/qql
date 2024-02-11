@@ -54,7 +54,7 @@ describe("qql views",()=>{
 
 		await qql.env({uid:2,role:"admin"}).query({insertInto: "my_posts", set: {title: "hello"}});
 		let my=await qql.env({uid:2,role:"admin"}).query({manyFrom: "my_posts"});
-		console.log(my);
+		//console.log(my);
 		expect(my.length).toEqual(2);
 		//console.log(await qql({manyFrom: "posts"}));
 
