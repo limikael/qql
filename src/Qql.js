@@ -3,21 +3,29 @@ import sqliteSqlstring from "sqlstring-sqlite";
 import mysqlSqlstring from "sqlstring";
 import QqlAnalysis from "./QqlAnalysis.js";
 import {arrayOnlyUnique} from "./js-util.js";
+import QqlEnv from "./QqlEnv.js";
 
 export default class Qql {
-	constructor({tables, driver, flavour}) {
+	constructor({tables, driver, flavour, role}) {
+		//console.log("role qql ctor: "+role);
+		this.role=role;
 		this.flavour=flavour;
 		if (!this.flavour)
 			this.flavour="sqlite";
 
+		this.rootEnv=new QqlEnv({root: true, qql: this});
 		this.driver=driver;
 		this.tables={};
 		for (let tableName in tables)
 			this.tables[tableName]=new Table({
+				...tables[tableName],
 				qql: this, 
-				name: tableName, 
-				...tables[tableName]
+				name: tableName
 			});
+	}
+
+	env(env) {
+		return new QqlEnv({qql: this, env});
 	}
 
 	escapeId(id) {
@@ -93,11 +101,11 @@ export default class Qql {
 		await this.runQueries(migrationQueries);
 	}
 
-	query=async (query)=>{
+	envQuery=async (env, query)=>{
 		if (query.oneFrom) {
-			return (await this.query({
-				...query,
-				oneFrom: null,
+			let {oneFrom, ...q}=query;
+			return (await this.envQuery(env,{
+				...q,
 				manyFrom: query.oneFrom,
 			}))[0];
 		}
@@ -107,7 +115,7 @@ export default class Qql {
 			if (!table)
 				throw new Error("No such table: "+query.manyFrom);
 
-			return await table.queryManyFrom(query);
+			return await table.queryManyFrom(env,query);
 		}
 
 		else if (query.insertInto) {
@@ -115,7 +123,7 @@ export default class Qql {
 			if (!table)
 				throw new Error("No such table: "+query.insertInto);
 
-			return await table.queryInsertInto(query);
+			return await table.queryInsertInto(env,query);
 		}
 
 		else if (query.update) {
@@ -123,7 +131,7 @@ export default class Qql {
 			if (!table)
 				throw new Error("No such table: "+query.update);
 
-			return await table.queryUpdate(query);
+			return await table.queryUpdate(env,query);
 		}
 
 		else if (query.deleteFrom) {
@@ -131,10 +139,14 @@ export default class Qql {
 			if (!table)
 				throw new Error("No such table: "+query.deleteFrom);
 
-			return await table.queryDeleteFrom(query);
+			return await table.queryDeleteFrom(env,query);
 		}
 
 		else
 			throw new Error("Query not understood");
+	}
+
+	query=async (query)=>{
+		return this.envQuery(this.rootEnv,query);
 	}
 }

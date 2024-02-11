@@ -9,6 +9,7 @@ describe("qql",()=>{
 
 		let qql=qqlSqljs({
 			sqljs: new SQL.Database(),
+			role: "admin",
 			tables: {
 				users: {
 					fields: {
@@ -31,6 +32,7 @@ describe("qql",()=>{
 		});
 
 		await qql.migrate();
+//		qql=qql.role("admin");
 
 		await qql.query({deleteFrom: "users"});
 		await qql.query({deleteFrom: "posts"});

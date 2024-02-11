@@ -24,7 +24,7 @@ describe("qql",()=>{
 
 		await qql.migrate();
 
-		let query=qql.query;
+		let query=qql; //.querrole("admin");
 
 		await query({insertInto: "users", set: {name: "micke"}});
 		await query({insertInto: "users", set: {name: "micke2"}});

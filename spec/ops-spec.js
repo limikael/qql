@@ -1,8 +1,8 @@
 import {qqlSqlite} from "../src/drivers.js";
 import sqlite3 from "sqlite3";
 
-describe("qql-util",()=>{
-	it("can canonicalize joins",async ()=>{
+describe("ops",()=>{
+	it("works with operators",async ()=>{
 		let qql=qqlSqlite({
 			sqlite: new sqlite3.Database(":memory:"),
 			tables: {
@@ -17,6 +17,7 @@ describe("qql-util",()=>{
 		});
 
 		await qql.migrate();
+		//qql=qql.role("admin");
 
 		await qql({deleteFrom: "users"});
 		await qql({insertInto: "users", set: {name: "micke1", num: 1}});
@@ -28,5 +29,7 @@ describe("qql-util",()=>{
 
 		let res=await qql({manyFrom: "users", where: {"num<":10}, offset: 0, limit: 2});
 		expect(res.length).toEqual(2);
+
+		await expectAsync(qql({manyFrom: "users", whre: {"num<":10}})).toBeRejected();
 	})
 })

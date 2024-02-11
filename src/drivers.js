@@ -65,13 +65,17 @@ export function qqlSqlite(...args) {
 	return qqlGeneric(conf); 
 }
 
+function wrapQqlEnv(qqlEnv) {
+	let fn=(o)=>qqlEnv.query(o);
+	fn.query=fn;
+	fn.migrate=(...args)=>qqlEnv.qql.migrate(...args);
+	fn.env=(env)=>wrapQqlEnv(qqlEnv.qql.env(env));
+
+	return fn;
+}
+
 export function qqlGeneric(...args) {
 	let conf=objectifyArgs(args,["driver"]);
 	let qql=new Qql(conf);
-
-	let fn=(o)=>qql.query(o);
-	fn.query=(o)=>qql.query(o);
-	fn.migrate=(...args)=>qql.migrate(...args);
-
-	return fn;
+	return wrapQqlEnv(qql.rootEnv);
 }

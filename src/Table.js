@@ -1,10 +1,12 @@
 import Field from "./Field.js";
 import Reference from "./Reference.js";
-import {arrayOnlyUnique} from "./js-util.js";
+import {arrayOnlyUnique, assertAllowedKeys, arrayify} from "./js-util.js";
 import {canonicalizeJoins} from "./qql-util.js";
 
 export default class Table {
-	constructor({name, qql, fields, viewFrom}) {
+	constructor({name, qql, fields, viewFrom, access, readAccess}) {
+		//console.log("role when creating table: "+qql.role);
+
 		this.name=name;
 		this.qql=qql;
 		this.references={};
@@ -14,8 +16,15 @@ export default class Table {
 		}
 
 		else {
-			this.fields={};
+	        if (!access && !readAccess) {
+	            access="admin";
+	            readAccess="public";
+	        }
 
+	        this.access=arrayify(access);
+	        this.readAccess=[...this.access,...arrayify(readAccess)];
+
+			this.fields={};
 			for (let fieldName in fields) {
 				let fieldSpec=fields[fieldName];
 
@@ -167,7 +176,10 @@ export default class Table {
 		return `CREATE TABLE \`${this.name+suffix}\` (${parts.join(",")})`;
 	}
 
-	async queryUpdate(query) {
+	async queryUpdate(env, query) {
+		assertAllowedKeys(query,["update","where","set"]);
+		this.assertWriteAccess(env);
+
 		let sets=[];
 		for (let k in query.set) {
 			if (!this.fields[k])
@@ -191,7 +203,10 @@ export default class Table {
 		return await this.qql.runQuery(s);
 	}
 
-	async queryDeleteFrom(query) {
+	async queryDeleteFrom(env, query) {
+		assertAllowedKeys(query,["deleteFrom","where"]);
+		this.assertWriteAccess(env);
+
 		let s=
 			"DELETE FROM "+
 			this.qql.escapeId(this.name)+" "+
@@ -200,7 +215,10 @@ export default class Table {
 		return await this.qql.runQuery(s);
 	}
 
-	async queryInsertInto(query) {
+	async queryInsertInto(env, query) {
+		assertAllowedKeys(query,["insertInto","set"]);
+		this.assertWriteAccess(env);
+
 		let fieldNames=[];
 		let values=[];
 
@@ -223,7 +241,10 @@ export default class Table {
 		return await this.qql.runQuery(s);
 	}
 
-	async queryManyFrom(query) {
+	async queryManyFrom(env, query) {
+		assertAllowedKeys(query,["manyFrom","limit","offset","where","join"]);
+		this.assertReadAccess(env);
+
 		let s=
 			"SELECT * FROM "+
 			this.qql.escapeId(query.manyFrom)+` `+
@@ -250,13 +271,13 @@ export default class Table {
 		});
 
 		for (let join of canonicalizeJoins(query.join))
-			await this.handleJoin(rows,join);
+			await this.handleJoin(env,rows,join);
 
 		return rows;
 	}
 
-	async handleJoin(rows, joinSpec) {
-		let join=joinSpec.join;
+	async handleJoin(env, rows, joinSpecArg) {
+		let {join, ...joinSpec}=joinSpecArg;
 		let reference=this.references[join];
 
 		if (!reference)
@@ -267,9 +288,8 @@ export default class Table {
 			let keys=arrayOnlyUnique(rows.map(row=>row[thisPk]));
 
 			let rowByPk=Object.fromEntries(rows.map(row=>[row[thisPk],row]));
-			let refRows=await this.qql.query({
+			let refRows=await this.qql.envQuery(env,{
 				...joinSpec,
-				join: undefined,
 				manyFrom: reference.manyFrom.name,
 				where: {
 					...joinSpec.where,
@@ -292,7 +312,6 @@ export default class Table {
 
 			let refRows=await this.qql.query({
 				...joinSpec,
-				join: undefined,
 				manyFrom: reference.oneFrom.name,
 				where: {
 					...joinSpec.where,
@@ -309,5 +328,21 @@ export default class Table {
 
 		else
 			throw new Error("Unable to join: "+JSON.stringify(join));
+	}
+
+	assertReadAccess(env) {
+		if (env.isRoot())
+			return;
+
+        if (!this.readAccess.includes(env.getRole()))
+        	throw new Error("Not allowed to read from: "+this.name+" with role "+env.getRole());
+	}
+
+	assertWriteAccess(env) {
+		if (env.isRoot())
+			return;
+
+        if (!this.access.includes(env.getRole()))
+        	throw new Error("Not allowed to write to: "+this.name+" with role "+env.getRole());
 	}
 }

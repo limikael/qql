@@ -20,3 +20,19 @@ export function objectifyArgs(params, fields) {
 
     return conf;
 }
+
+export function assertAllowedKeys(o, allowedKeys) {
+    let disallowed=Object.keys(o).filter(v=>!allowedKeys.includes(v));
+    if (disallowed.length)
+        throw new Error("Unknown keys: "+disallowed.join(","));
+}
+
+export function arrayify(cand) {
+    if (!cand)
+        return [];
+
+    if (!Array.isArray(cand))
+        return [cand];
+
+    return cand;
+}
