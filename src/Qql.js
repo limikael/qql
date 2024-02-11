@@ -52,14 +52,14 @@ export default class Qql {
 		}
 	}
 
-	async runQueries(queryArray) {
+	async runQueries(queryArray, returnType="rows") {
 		//console.log(queryArray);
-		let results=await this.driver(queryArray);
+		let results=await this.driver(queryArray,returnType);
 		return results;
 	}
 
-	async runQuery(query) {
-		let results=await this.runQueries([query]);
+	async runQuery(query, returnType="rows") {
+		let results=await this.runQueries([query],returnType);
 		return results[0];
 	}
 

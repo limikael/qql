@@ -13,7 +13,7 @@ export default class Table {
 
 		if (viewFrom) {
 			this.viewFrom=viewFrom;
-			throw new Error("vews not implemented yet");
+			throw new Error("views not implemented yet");
 		}
 
 		else {
@@ -201,7 +201,7 @@ export default class Table {
 			this.createWhereClause(query.where);
 
 		//console.log(s);
-		return await this.qql.runQuery(s);
+		return await this.qql.runQuery(s,"none");
 	}
 
 	async queryDeleteFrom(env, query) {
@@ -213,7 +213,7 @@ export default class Table {
 			this.qql.escapeId(this.name)+" "+
 			this.createWhereClause(query.where);
 
-		return await this.qql.runQuery(s);
+		return await this.qql.runQuery(s,"none");
 	}
 
 	async queryInsertInto(env, query) {
@@ -239,7 +239,7 @@ export default class Table {
 			fieldNames.join(",")+") VALUES ("+
 			values.join(",")+")";
 
-		return await this.qql.runQuery(s);
+		return await this.qql.runQuery(s,"id");
 	}
 
 	async queryManyFrom(env, query) {

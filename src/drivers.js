@@ -1,68 +1,63 @@
 import Qql from "./Qql.js";
 import {objectifyArgs} from "./js-util.js";
 
-export function qqlSqljs(...args) {
-	let conf=objectifyArgs(args,["sqljs"]);
-	let sqljs=conf.sqljs;	
+export function qqlDriverSqlite(sqlite) {
+	function singleQuery(query, returnType) {
+		if (!returnType)
+			returnType="none";
 
-	function processResult(result) {
-		let rows=[];
-		for (let v of result.values) {
-			let row={};
-			for (let i=0; i<result.columns.length; i++) {
-				let c=result.columns[i]
-				row[c]=v[i];
-			}
-
-			rows.push(row);
-		}
-
-		return rows;
-	}
-
-	async function singleQuery(query) {
-		let res=sqljs.exec(query);
-		if (!res.length)
-			return [];
-
-		return processResult(res[0]);
-	}
-
-	conf.driver=async queries=>{
-		return Promise.all(queries.map(query=>singleQuery(query)));
-	}
-
-	return qqlGeneric(conf);
-}
-
-export function qqlSqlite(...args) {
-	let conf=objectifyArgs(args,["sqlite"]);
-	let sqlite=conf.sqlite;	
-
-	function singleQuery(query) {
 		return new Promise((resolve,reject)=>{
-			sqlite.all(query,(err,rows)=>{
-				//console.log(rows);
+			switch (returnType) {
+				case "id":
+					sqlite.run(query,function(err) {
+						if (err)
+							reject(err);
 
-				if (err)
-					reject(err);
+						else {
+							resolve(this.lastID);
+						}
+					});
+					break;
 
-				else
-					resolve(rows);
-			});
+				case "rows":
+					sqlite.all(query,function(err,rows) {
+						if (err)
+							reject(err);
+
+						else
+							resolve(rows);
+					});
+					break;
+
+				case "none":
+					sqlite.run(query,function(err) {
+						if (err)
+							reject(err);
+
+						else
+							resolve();
+					});
+					break;
+
+				default:
+					throw new Error("Unknown query return type: "+returnType);
+			}
 		})
 	}
 
-	conf.driver=async queries=>{
+	return async function(queries, returnType) {
 		let res=[];
 
 		for (let query of queries)
-			res.push(await singleQuery(query))
+			res.push(await singleQuery(query, returnType))
 
 		return res;
-	};
+	}
+}
 
-	return qqlGeneric(conf); 
+export function qqlSqlite(...args) {
+	let {sqlite, ...conf}=objectifyArgs(args,["sqlite"]);
+	return qqlGeneric(qqlDriverSqlite(sqlite),conf);
 }
 
 function wrapQqlEnv(qqlEnv) {

@@ -1,14 +1,10 @@
-import initSqlJs from "sql.js";
-import {qqlSqljs} from "../src/drivers.js";
+import sqlite3 from "sqlite3";
+import {qqlSqlite} from "../src/drivers.js";
 
 describe("qql secutiry",()=>{
 	it("works",async()=>{
-		let SQL=await initSqlJs({
-			locateFile: file=>`node_modules/sql.js/dist/${file}`
-		});
-
-		let qql=qqlSqljs({
-			sqljs: new SQL.Database(),
+		let qql=qqlSqlite({
+			sqlite: new sqlite3.Database(':memory:'),
 			tables: {
 				users: {
 					access: "writer",
