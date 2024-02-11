@@ -13,6 +13,7 @@ export default class Table {
 
 		if (viewFrom) {
 			this.viewFrom=viewFrom;
+			throw new Error("vews not implemented yet");
 		}
 
 		else {
