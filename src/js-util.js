@@ -36,3 +36,10 @@ export function arrayify(cand) {
 
     return cand;
 }
+
+export function splitPath(pathname) {
+    if (pathname===undefined)
+        throw new Error("Undefined pathname");
+
+    return pathname.split("/").filter(s=>s.length>0);
+}

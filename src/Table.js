@@ -119,6 +119,12 @@ export default class Table {
 				return this.fields[fieldName];
 	}
 
+	getPrimaryKeyFieldName() {
+		for (let fieldName in this.fields)
+			if (this.fields[fieldName].pk)
+				return fieldName;
+	}
+
 	isView() {
 		return !!this.viewFrom;
 	}

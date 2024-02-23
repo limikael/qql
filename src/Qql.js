@@ -6,9 +6,7 @@ import {arrayOnlyUnique} from "./js-util.js";
 import QqlEnv from "./QqlEnv.js";
 
 export default class Qql {
-	constructor({tables, driver, flavour, role}) {
-		//console.log("role qql ctor: "+role);
-		this.role=role;
+	constructor({tables, driver, flavour}) {
 		this.flavour=flavour;
 		if (!this.flavour)
 			this.flavour="sqlite";
@@ -22,6 +20,10 @@ export default class Qql {
 				name: tableName,
 				...tables[tableName]
 			});
+	}
+
+	getTableByName=(tableName)=>{
+		return this.tables[tableName];
 	}
 
 	env(env) {

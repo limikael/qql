@@ -63,6 +63,7 @@ export function qqlSqlite(...args) {
 function wrapQqlEnv(qqlEnv) {
 	let fn=(o)=>qqlEnv.query(o);
 	fn.query=fn;
+	fn.getTableByName=qqlEnv.qql.getTableByName;
 	fn.migrate=(...args)=>qqlEnv.qql.migrate(...args);
 	fn.env=(env)=>wrapQqlEnv(qqlEnv.qql.env(env));
 
