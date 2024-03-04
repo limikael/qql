@@ -70,6 +70,7 @@ export default class QqlRestServer {
             }));
         }
 
+        // Delete.
         if (req.method=="DELETE" &&
                 argv.length==2 &&
                 this.qql.getTableByName(argv[0])) {
