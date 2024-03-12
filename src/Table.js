@@ -257,7 +257,7 @@ export default class Table {
 	}
 
 	async queryUpdate(env, query) {
-		assertAllowedKeys(query,["update","where","set"]);
+		assertAllowedKeys(query,["update","where","set","return"]);
 		this.assertWriteAccess(env);
 
 		let sets=[];
@@ -273,6 +273,18 @@ export default class Table {
 			);
 		}
 
+		let affectedId;
+		if (query.return=="item") {
+			let affectedRows=await this.queryManyFrom(env,{
+				select: [this.getPrimaryKeyFieldName()],
+				where: query.where,
+				limit: 1
+			});
+
+			if (affectedRows.length)
+				affectedId=affectedRows[0][this.getPrimaryKeyFieldName()];
+		}
+
 		let s=
 			"UPDATE "+
 			this.qql.escapeId(this.getTable().name)+" "+
@@ -286,26 +298,72 @@ export default class Table {
 			});
 		}
 
-		return;
+		if (!query.return)
+			query.return="changes";
+
+		switch (query.return) {
+			case "changes":
+				return changes;
+				break;
+
+			case "item":
+				if (!affectedId)
+					return;
+
+				let items=await this.queryManyFrom(env, {
+					where: {[this.getPrimaryKeyFieldName()]: affectedId},
+					limit: 1
+				});
+
+				return items[0];
+				break;
+
+			default:
+				throw new Error("Unknown return type: "+query.return);
+		}
 	}
 
 	async queryDeleteFrom(env, query) {
 		if (this.singleton)
 			throw new Error("Can't delete from a singleton view");
 
-		assertAllowedKeys(query,["deleteFrom","where"]);
+		assertAllowedKeys(query,["deleteFrom","where","return"]);
 		this.assertWriteAccess(env);
+
+		let affectedRow;
+		if (query.return=="item") {
+			let affectedRows=await this.queryManyFrom(env,{
+				where: query.where,
+				limit: 1
+			});
+
+			if (affectedRows.length)
+				affectedRow=affectedRows[0];
+		}
 
 		let s=
 			"DELETE FROM "+
 			this.qql.escapeId(this.getTable().name)+" "+
 			this.createWhereClause(env,query.where);
 
-		return await this.qql.runQuery(s,"none");
+		let changes=await this.qql.runQuery(s,"changes");
+
+		if (!query.return)
+			query.return="changes";
+
+		switch (query.return) {
+			case "changes":
+				return changes;
+				break;
+
+			case "item":
+				return affectedRow;
+				break;
+		}
 	}
 
 	async performQueryInsertInto(env, query) {
-		assertAllowedKeys(query,["insertInto","set"]);
+		assertAllowedKeys(query,["insertInto","set","return"]);
 		this.assertWriteAccess(env);
 
 		let fieldNames=[];
@@ -334,7 +392,26 @@ export default class Table {
 			fieldNames.join(",")+") VALUES ("+
 			values.join(",")+")";
 
-		return await this.qql.runQuery(s,"id");
+		let id=await this.qql.runQuery(s,"id");
+
+		if (!query.return)
+			query.return="id";
+
+		switch (query.return) {
+			case "id":
+				return id;
+				break;
+
+			case "item":
+				let items=await this.queryManyFrom(env,{
+					where: {[this.getPrimaryKeyFieldName()]: id},
+					limit: 1
+				});
+				return items[0];
+				break;
+
+			throw new Error("Unknown return type: "+query.return);
+		}
 	}
 
 	async queryInsertInto(env, query) {
@@ -385,6 +462,7 @@ export default class Table {
 				s+=" OFFSET "+this.qql.escapeValue(query.offset);
 		}
 
+		//console.log(s);
 		let rows=await this.qql.runQuery(s);
 		rows=rows.map(row=>{
 			for (let fieldName in this.fields) {

@@ -122,15 +122,10 @@ export default class QqlRestServer {
                 argv.length==1 &&
                 this.qql.getTableByName(argv[0])) {
             let table=this.qql.getTableByName(argv[0]);
-            let pkField=table.getPrimaryKeyFieldName()
-            let pkValue=await env.query({
-                insertInto: argv[0],
-                set: await this.decodeRequestData(req)
-            });
-
             return Response.json(await env.query({
-                oneFrom: argv[0],
-                where: {[pkField]: pkValue}
+                insertInto: argv[0],
+                set: await this.decodeRequestData(req),
+                return: "item"
             }));
         }
 
@@ -158,15 +153,11 @@ export default class QqlRestServer {
             }
 
             else {
-                await env.query({
+                return Response.json(await env.query({
                     update: argv[0],
                     where: {[pkField]: argv[1]},
-                    set: await this.decodeRequestData(req)
-                })
-
-                return Response.json(await env.query({
-                    oneFrom: argv[0],
-                    where: {[pkField]: argv[1]}
+                    set: await this.decodeRequestData(req),
+                    return: "item"
                 }));
             }
         }
@@ -176,18 +167,12 @@ export default class QqlRestServer {
                 argv.length==2 &&
                 this.qql.getTableByName(argv[0])) {
             let table=this.qql.getTableByName(argv[0]);
-            let pkField=table.getPrimaryKeyFieldName()
-            let item=await env.query({
-                oneFrom: argv[0],
-                where: {[pkField]: argv[1]}
-            });
-
-            await env.query({
+            let pkField=table.getPrimaryKeyFieldName();
+            return Response.json(await env.query({
                 deleteFrom: argv[0],
-                where: {[pkField]: argv[1]}
-            });
-
-            return Response.json(item);
+                where: {[pkField]: argv[1]},
+                return: "item"
+            }));
         }
     }
 
