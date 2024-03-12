@@ -1,9 +1,9 @@
 import sqlite3 from "sqlite3";
-import {qqlSqlite} from "../src/drivers.js";
+import {createQql} from "../src/drivers.js";
 
 describe("qql views",()=>{
 	it("works",async()=>{
-		let qql=qqlSqlite({
+		let qql=createQql({
 			sqlite: new sqlite3.Database(':memory:'),
 			tables: {
 				users: {
@@ -20,7 +20,7 @@ describe("qql views",()=>{
 						id: {type: "integer", pk: true, notnull: true},
 						title: {type: "text"},
 						content: {type: "text"},
-						user: {type: "reference", reference: "users"},
+						user_id: {type: "reference", prop: "user", reference: "users"},
 						meta: {type: "json"},
 						published: {type: "boolean", notnull: true, default: false}
 					}
@@ -38,6 +38,14 @@ describe("qql views",()=>{
 					exclude: ["meta"],
 					where: {
 						"user_id": "$uid",
+					}
+				},
+
+				my_profile: {
+					access: "user",
+					singleViewFrom: "users",
+					where: {
+						"id": "$uid"
 					}
 				}
 			}
@@ -63,5 +71,7 @@ describe("qql views",()=>{
 		//console.log(await qql({manyFrom: "posts", where: {id: 1}}));
 		expect((await qql({manyFrom: "published_posts"})).length).toEqual(3);
 		//console.log(await qql({manyFrom: "published_posts", select: ["published"]}));
+
+		//console.log(await qql.env({uid:1,role: "user"}).query({oneFrom: "my_profile"}));
 	})
 })

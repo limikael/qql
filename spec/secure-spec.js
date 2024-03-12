@@ -1,9 +1,9 @@
 import sqlite3 from "sqlite3";
-import {qqlSqlite} from "../src/drivers.js";
+import {createQql} from "../src/drivers.js";
 
 describe("qql secutiry",()=>{
 	it("works",async()=>{
-		let qql=qqlSqlite({
+		let qql=createQql({
 			sqlite: new sqlite3.Database(':memory:'),
 			tables: {
 				users: {

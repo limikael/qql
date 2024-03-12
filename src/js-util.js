@@ -43,3 +43,14 @@ export function splitPath(pathname) {
 
     return pathname.split("/").filter(s=>s.length>0);
 }
+
+export function getFileExt(fn) {
+    if (fn.lastIndexOf(".")<0)
+        throw new Error("Filename doesn't contain a dot.");
+
+    return fn.slice(fn.lastIndexOf("."));
+}
+
+export function jsonClone(v) {
+    return JSON.parse(JSON.stringify(v));
+}

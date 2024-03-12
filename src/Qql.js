@@ -55,6 +55,9 @@ export default class Qql {
 	}
 
 	async runQueries(queryArray, returnType="rows") {
+		if (!queryArray.length)
+			return [];
+
 		//console.log(queryArray);
 		let results=await this.driver(queryArray,returnType);
 		return results;
@@ -80,14 +83,17 @@ export default class Qql {
 		let infoRes=await this.runQueries(infoQueries);
 		for (let i in nameRows) {
 			let tableName=nameRows[i].name;
-			existingTables[tableName]=Table.fromDescribeRows(tableName,infoRes[i]);
+			//console.log(infoRes[i]);
+			existingTables[tableName]=Table.fromDescribeRows(tableName,infoRes[i],this);
 		}
 
 		return new QqlAnalysis({tables: existingTables});
 	}
 
 	/*force, test, dryRun, risky*/
-	async migrate() {
+	async migrate(options={}) {
+		let {dryRun}=options;
+
 		let analysis=await this.analyze();
 
 		//console.log(analysis.tables);
@@ -99,8 +105,11 @@ export default class Qql {
 				...this.tables[tableName].getMigrationQueries(analysis.tables[tableName])
 			];
 
-		//console.log(migrationQueries);
-		await this.runQueries(migrationQueries);
+		if (dryRun)
+			console.log(migrationQueries);
+
+		else
+			await this.runQueries(migrationQueries);
 	}
 
 	envQuery=async (env, query)=>{
@@ -118,6 +127,14 @@ export default class Qql {
 				throw new Error("No such table: "+query.manyFrom);
 
 			return await table.queryManyFrom(env,query);
+		}
+
+		else if (query.countFrom) {
+			let table=this.tables[query.countFrom];
+			if (!table)
+				throw new Error("No such table: "+query.countFrom);
+
+			return await table.queryCountFrom(env,query);
 		}
 
 		else if (query.insertInto) {

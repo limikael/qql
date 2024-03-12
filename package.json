@@ -1,6 +1,6 @@
 {
   "name": "qql",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -13,5 +13,8 @@
   "devDependencies": {
     "jasmine": "^5.1.0",
     "sqlite3": "^5.1.7"
+  },
+  "exports": {
+    ".": "./src/exports.js"
   }
 }

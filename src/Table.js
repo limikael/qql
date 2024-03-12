@@ -1,10 +1,10 @@
 import Field from "./Field.js";
 import Reference from "./Reference.js";
-import {arrayOnlyUnique, assertAllowedKeys, arrayify} from "./js-util.js";
+import {arrayOnlyUnique, assertAllowedKeys, arrayify, jsonClone} from "./js-util.js";
 import {canonicalizeJoins} from "./qql-util.js";
 
 export default class Table {
-	constructor({name, qql, fields, viewFrom, access, readAccess, where, include, exclude}) {
+	constructor({name, qql, fields, viewFrom, singleViewFrom, access, readAccess, where, include, exclude}) {
 		//console.log("role when creating table: "+qql.role);
 
 		this.name=name;
@@ -19,9 +19,12 @@ export default class Table {
         this.access=arrayify(access);
         this.readAccess=[...this.access,...arrayify(readAccess)];
 
-		if (viewFrom) {
-			this.viewFrom=viewFrom;
+		if (viewFrom || singleViewFrom) {
+			this.viewFrom=viewFrom||singleViewFrom;
 			this.where=where||{};
+
+			if (singleViewFrom)
+				this.singleton=true;
 
 			if (this.getTable().isView())
 				throw new Error("Can't create a view from a view");
@@ -45,12 +48,11 @@ export default class Table {
 			for (let ex of exclude) {
 				if (!this.getTable().fields[ex])
 					throw new Error("Unknown field to exclude: "+ex);
-
-				if (this.getTable().fields[ex].pk)
-					throw new Error("Primary key can't be excluded in view");
 			}
 
 			include=include.filter(item=>!exclude.includes(item));
+			if (!include.includes(this.getTable().getPrimaryKeyFieldName()))
+				include.push(this.getTable().getPrimaryKeyFieldName());
 
 			this.fields={};
 			for (let includeName of include)
@@ -60,50 +62,67 @@ export default class Table {
 		else {
 			this.fields={};
 			for (let fieldName in fields) {
-				let fieldSpec=fields[fieldName];
-
-				if (fieldSpec.type=="reference") {
-					let referenceTable=this.qql.tables[fieldSpec.reference];
-					let pkField=referenceTable.getPrimaryKeyField();
-					let name=fieldName+"_"+pkField.name;
-
-					let reference=new Reference({
-						oneFrom: referenceTable,
-						oneProp: fieldSpec.refprop,
-						manyFrom: this,
-						manyProp: fieldName,
-						manyField: name
-					});
-
-					if (this.references[reference.manyProp] ||
-							referenceTable.references[reference.oneProp]) {
-						throw new Error("Ambigous reference: "+JSON.stringify(fieldSpec));
-					}
-
-					this.references[reference.manyProp]=reference;
-					referenceTable.references[reference.oneProp]=reference;
-
-					this.fields[name]=new Field({
-						qql: this.qql,
-						name: name,
-						type: pkField.type,
-						notnull: fieldSpec.notnull,
-						default: fieldSpec.default
-					});
+				if (fields[fieldName] instanceof Field) {
+					this.fields[fieldName]=fields[fieldName];
 				}
 
 				else {
-					this.fields[fieldName]=new Field({
-						qql: this.qql,
-						name: fieldName, 
-						...fields[fieldName]
-					});
+					let fieldSpec=fields[fieldName];
+
+					if (fieldSpec.type=="reference") {
+						let referenceTable=this.qql.tables[fieldSpec.reference];
+						let pkField=referenceTable.getPrimaryKeyField();
+
+						let reference=new Reference({
+							oneFrom: referenceTable,
+							oneProp: fieldSpec.refprop,
+							manyFrom: this,
+							manyProp: fieldSpec.prop,
+							manyField: fieldName,
+						});
+
+						if (this.references[reference.manyProp] ||
+								referenceTable.references[reference.oneProp]) {
+							throw new Error("Ambigous reference: "+JSON.stringify(fieldSpec));
+						}
+
+						this.references[reference.manyProp]=reference;
+						referenceTable.references[reference.oneProp]=reference;
+
+						this.fields[fieldName]=new Field({
+							qql: this.qql,
+							name: fieldName,
+							type: pkField.type,
+							notnull: fieldSpec.notnull,
+							default: fieldSpec.default
+						});
+					}
+
+					else {
+						this.fields[fieldName]=new Field({
+							qql: this.qql,
+							name: fieldName, 
+							...fields[fieldName]
+						});
+					}
 				}
 			}
 
 			if (Object.keys(this.fields).filter(fid=>this.fields[fid].pk).length!=1)
 				throw new Error("There must be exactly one primary key for table "+this.name);
 		}
+	}
+
+	static fromDescribeRows(name, rows, qql) {
+		let fields={};
+		for (let row of rows) {
+			let field=Field.fromDescribeRow(row,qql);
+			fields[field.name]=field;
+		}
+
+		let table=new Table({name, fields, qql});
+
+		return table;
 	}
 
 	getTable() {
@@ -127,6 +146,20 @@ export default class Table {
 
 	isView() {
 		return !!this.viewFrom;
+	}
+
+	createDefaultSingleton(where) {
+		if (!this.isView() || !this.singleton)
+			throw new Error("Not singleton view");
+
+		let item={};
+		for (let fieldId in this.fields)
+			item[fieldId]=jsonClone(this.fields[fieldId].default);
+
+		for (let k in where)
+			item[k]=where[k];
+
+		return item;
 	}
 
 	createWhereClause(env, where) {
@@ -158,16 +191,6 @@ export default class Table {
 			return "";
 
 		return "WHERE "+exprs.join(" AND ");
-	}
-
-	static fromDescribeRows(name, rows) {
-		let table=new Table({name, fields:{}});
-		for (let row of rows) {
-			let field=Field.fromDescribeRow(row);
-			table.fields[field.name]=field;
-		}
-
-		return table;
 	}
 
 	isCurrent(existingTable) {
@@ -256,10 +279,20 @@ export default class Table {
 			"SET "+sets.join(",")+" "+
 			this.createWhereClause(env,query.where);
 
-		return await this.qql.runQuery(s,"none");
+		let changes=await this.qql.runQuery(s,"changes");
+		if (this.singleton && !changes) {
+			this.performQueryInsertInto(env,{
+				set: {...query.where, ...query.set}
+			});
+		}
+
+		return;
 	}
 
 	async queryDeleteFrom(env, query) {
+		if (this.singleton)
+			throw new Error("Can't delete from a singleton view");
+
 		assertAllowedKeys(query,["deleteFrom","where"]);
 		this.assertWriteAccess(env);
 
@@ -271,7 +304,7 @@ export default class Table {
 		return await this.qql.runQuery(s,"none");
 	}
 
-	async queryInsertInto(env, query) {
+	async performQueryInsertInto(env, query) {
 		assertAllowedKeys(query,["insertInto","set"]);
 		this.assertWriteAccess(env);
 
@@ -302,6 +335,27 @@ export default class Table {
 			values.join(",")+")";
 
 		return await this.qql.runQuery(s,"id");
+	}
+
+	async queryInsertInto(env, query) {
+		if (this.singleton)
+			throw new Error("Can't insert into singleton view");
+
+		return await this.performQueryInsertInto(env,query);
+	}
+
+	async queryCountFrom(env, query) {
+		this.assertReadAccess(env);
+		if (this.singleton)
+			return 1;
+
+		let s=
+			"SELECT COUNT(*) AS count FROM "+
+			this.qql.escapeId(this.getTable().name)+` `+
+			this.createWhereClause(env,query.where);
+
+		let rows=await this.qql.runQuery(s);
+		return rows[0].count;
 	}
 
 	async queryManyFrom(env, query) {
@@ -344,6 +398,12 @@ export default class Table {
 
 		for (let join of canonicalizeJoins(query.join))
 			await this.handleJoin(env,rows,join);
+
+		if (!rows.length && this.singleton) {
+			return [
+				this.createDefaultSingleton(query.where)
+			];
+		}
 
 		return rows;
 	}
@@ -405,6 +465,8 @@ export default class Table {
 	assertReadAccess(env) {
 		if (env.isRoot())
 			return;
+
+		//console.log(this.readAccess);
 
         if (!this.readAccess.includes(env.getRole()))
         	throw new Error("Not allowed to read from: "+this.name+" with role "+env.getRole());

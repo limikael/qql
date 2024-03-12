@@ -19,6 +19,17 @@ export function qqlDriverSqlite(sqlite) {
 					});
 					break;
 
+				case "changes":
+					sqlite.run(query,function(err) {
+						if (err)
+							reject(err);
+
+						else {
+							resolve(this.changes);
+						}
+					});
+					break;
+
 				case "rows":
 					sqlite.all(query,function(err,rows) {
 						if (err)
@@ -55,23 +66,23 @@ export function qqlDriverSqlite(sqlite) {
 	}
 }
 
-export function qqlSqlite(...args) {
-	let {sqlite, ...conf}=objectifyArgs(args,["sqlite"]);
-	return qqlGeneric(qqlDriverSqlite(sqlite),conf);
-}
-
 function wrapQqlEnv(qqlEnv) {
 	let fn=(o)=>qqlEnv.query(o);
 	fn.query=fn;
 	fn.getTableByName=qqlEnv.qql.getTableByName;
+	fn.rootEnv=qqlEnv.qql.rootEnv;
 	fn.migrate=(...args)=>qqlEnv.qql.migrate(...args);
 	fn.env=(env)=>wrapQqlEnv(qqlEnv.qql.env(env));
 
 	return fn;
 }
 
-export function qqlGeneric(...args) {
+export function createQql(...args) {
 	let conf=objectifyArgs(args,["driver"]);
+
+	if (conf.sqlite)
+		conf.driver=qqlDriverSqlite(conf.sqlite);
+
 	let qql=new Qql(conf);
 	return wrapQqlEnv(qql.rootEnv);
 }

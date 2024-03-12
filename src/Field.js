@@ -1,4 +1,4 @@
-//import sqlstring from "sqlstring-sqlite";
+import {jsonClone} from "./js-util.js";
 
 export default class Field {
 	constructor(spec) {
@@ -8,17 +8,29 @@ export default class Field {
 			type: spec.type,
 			pk: !!spec.pk,
 			notnull: !!spec.notnull,
-			/*reference_table: spec.reference_table,
-			reference_field: spec.reference_field*/
 		});
 
-		if (spec.defaultSql)
+		if (spec.defaultSql) {
 			this.defaultSql=spec.defaultSql;
+		}
 
-		else
+		else {
+			let def=spec.default;
+			if (!def)
+				def=null;
+			this.default=jsonClone(def);
+			this.haveDefault=true;
 			this.defaultSql=this.qql.escapeValue(spec.default);
+		}
 
 		this.sqlType();
+	}
+
+	getDefault() {
+		if (!this.haveDefault)
+			throw new Error();
+
+		return this.default;
 	}
 
 	sqlType() {
@@ -52,7 +64,7 @@ export default class Field {
 		);
 
 		if (!eq) {
-			console.log("diff: ",this,that);
+			//console.log("diff: ",this,that);
 		}
 
 		return eq;
@@ -100,7 +112,7 @@ export default class Field {
 		}
 	}
 
-	static fromDescribeRow(row) {
+	static fromDescribeRow(row, qql) {
 		let t=row.type.split("(")[0].toLowerCase();
 		if (t=="varchar")
 			t="text";
@@ -108,6 +120,7 @@ export default class Field {
 		//console.log(row);
 
 		return new Field({
+			qql: qql,
 			notnull: !!row.notnull,
 			name: row.name,
 			type: t,

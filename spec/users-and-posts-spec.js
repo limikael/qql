@@ -1,11 +1,10 @@
 import sqlite3 from "sqlite3";
-import {qqlSqlite} from "../src/drivers.js";
+import {createQql} from "../src/drivers.js";
 
 describe("qql",()=>{
 	it("works",async()=>{
-		let qql=qqlSqlite({
+		let qql=createQql({
 			sqlite: new sqlite3.Database(':memory:'),
-			role: "admin",
 			tables: {
 				users: {
 					fields: {
@@ -20,13 +19,14 @@ describe("qql",()=>{
 						title: {type: "text"},
 						published: {type: "boolean", default: false},
 						content: {type: "text"},
-						author: {type: "reference", reference: "users"/*, refprop: "authored"*/},
-						proofreader: {type: "reference", reference: "users", refprop: "proofread"}
+						author_id: {type: "reference", reference: "users", prop: "author", /*, refprop: "authored"*/},
+						proofreader_id: {type: "reference", reference: "users", prop: "proofreader", refprop: "proofread"}
 					}
 				},
 			}
 		});
 
+		await qql.migrate();
 		await qql.migrate();
 //		qql=qql.role("admin");
 
