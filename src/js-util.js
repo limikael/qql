@@ -54,3 +54,7 @@ export function getFileExt(fn) {
 export function jsonClone(v) {
     return JSON.parse(JSON.stringify(v));
 }
+
+export function jsonEq(a,b) {
+    return (JSON.stringify(a)==JSON.stringify(b));
+}

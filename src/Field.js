@@ -80,10 +80,30 @@ export default class Field {
 				value.map(v=>this.qql.escapeValue(v)).join(",")+")"
 			);
 
-		else
-			return (
-				this.qql.escapeId(this.name)+op+this.qql.escapeValue(value)
-			);
+		else {
+			switch (op) {
+				case "~":
+					let s=
+						"UPPER("+this.qql.escapeId(this.name)+") LIKE "+
+						this.qql.escapeValue("%"+String(value).toUpperCase()+"%")
+
+					return s;
+					break;
+
+				case "=":
+				case ">":
+				case "<":
+				case ">=":
+				case "<=":
+					return (
+						this.qql.escapeId(this.name)+op+this.qql.escapeValue(value)
+					);
+					break;
+
+				default:
+					throw new Error("Unknown op: "+op);
+			}
+		}
 	}
 
 	represent(data) {

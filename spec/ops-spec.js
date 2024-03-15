@@ -23,12 +23,16 @@ describe("ops",()=>{
 		await qql({insertInto: "users", set: {name: "micke1", num: 1}});
 		await qql({insertInto: "users", set: {name: "micke2", num: 2}});
 		await qql({insertInto: "users", set: {name: "micke3", num: 3}});
+		await qql({insertInto: "users", set: {name: "someone else"}});
 
 		expect((await qql({manyFrom: "users", where: {"num<":3}})).length).toEqual(2);
 		expect((await qql({manyFrom: "users", where: {"num<":10}, limit: 1})).length).toEqual(1);
 
 		let res=await qql({manyFrom: "users", where: {"num<":10}, offset: 0, limit: 2});
 		expect(res.length).toEqual(2);
+
+		res=await qql({manyFrom: "users", where: {"name~":"micke"}});
+		console.log(res);
 
 		await expectAsync(qql({manyFrom: "users", whre: {"num<":10}})).toBeRejected();
 	})
