@@ -8,5 +8,8 @@ export default class Reference {
 
 		if (!this.oneProp)
 			this.oneProp=this.manyFrom.name;
+
+		if (!this.manyProp)
+			this.manyProp=this.oneFrom.name;
 	}
 }

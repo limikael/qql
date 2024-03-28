@@ -65,6 +65,12 @@ export default class QqlRestServer {
             if (url.searchParams.get("filter"))
                 where=JSON.parse(url.searchParams.get("filter"));
 
+            let table=this.qql.getTableByName(argv[0]);
+            if (where.q && table.recordRepresentation) {
+                where[table.recordRepresentation+"~"]=where.q;
+                delete where.q;
+            }
+
             let count=await env.query({
                 countFrom: argv[0],
                 where: where

@@ -4,9 +4,12 @@ import {arrayOnlyUnique, assertAllowedKeys, arrayify, jsonClone} from "./js-util
 import {canonicalizeJoins} from "./qql-util.js";
 
 export default class Table {
-	constructor({name, qql, fields, viewFrom, singleViewFrom, access, readAccess, where, include, exclude}) {
+	constructor({name, qql, fields, viewFrom, singleViewFrom, 
+				access, readAccess, where, include, exclude,
+				recordRepresentation}) {
 		//console.log("role when creating table: "+qql.role);
 
+		this.recordRepresentation=recordRepresentation;
 		this.name=name;
 		this.qql=qql;
 		this.references={};

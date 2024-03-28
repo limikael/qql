@@ -1,16 +1,20 @@
+import {objectifyArgs} from "./js-util.js";
+
 export default class QqlClient {
-	constructor({fetch, url}) {
+	constructor({fetch, url, headers}) {
 		if (!fetch)
 			fetch=globalThis.fetch;
 
 		this.url=url;
 		this.fetch=fetch;
+		this.headers=headers;
 	}
 
 	query=async(query)=>{
 		let response=await this.fetch(this.url,{
 			method: "POST",
-			body: JSON.stringify(query)
+			body: JSON.stringify(query),
+			headers: this.headers
 		});
 
 		//console.log("respone...",response);
@@ -22,8 +26,9 @@ export default class QqlClient {
 	}
 }
 
-export function createQqlClient({fetch, url}) {
-	let qqlClient=new QqlClient({fetch,url});
+export function createQqlClient(...args) {
+	let options=objectifyArgs(args,["url"])
+	let qqlClient=new QqlClient(options);
 
 	return (query=>qqlClient.query(query));
 }
