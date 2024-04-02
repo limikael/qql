@@ -32,7 +32,8 @@ describe("ops",()=>{
 		expect(res.length).toEqual(2);
 
 		res=await qql({manyFrom: "users", where: {"name~":"micke"}});
-		console.log(res);
+		expect(res.length).toEqual(3);
+		//console.log(res);
 
 		await expectAsync(qql({manyFrom: "users", whre: {"num<":10}})).toBeRejected();
 	})

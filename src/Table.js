@@ -37,8 +37,8 @@ export default class Table {
 					throw new Error("Unknown field in where clause for view: "+k);
 
 				let field=this.getTable().fields[k];
-				if (!["text","integer","boolean"].includes(field.type))
-					throw new Error("Can not use type "+field.type+" in where clause for view: "+field.name);
+				if (!["text","integer","boolean","reference"].includes(field.type))
+					throw new Error("Can not use type "+field.type+" in where clause for view: "+k);
 			}
 
 			if (!include)
@@ -69,50 +69,62 @@ export default class Table {
 					this.fields[fieldName]=fields[fieldName];
 				}
 
+				else if (fields[fieldName].type=="reference") {
+					this.fields[fieldName]=fields[fieldName];
+				}
+
 				else {
-					let fieldSpec=fields[fieldName];
-
-					if (fieldSpec.type=="reference") {
-						let referenceTable=this.qql.tables[fieldSpec.reference];
-						let pkField=referenceTable.getPrimaryKeyField();
-
-						let reference=new Reference({
-							oneFrom: referenceTable,
-							oneProp: fieldSpec.refprop,
-							manyFrom: this,
-							manyProp: fieldSpec.prop,
-							manyField: fieldName,
-						});
-
-						if (this.references[reference.manyProp] ||
-								referenceTable.references[reference.oneProp]) {
-							throw new Error("Ambigous reference: "+JSON.stringify(fieldSpec));
-						}
-
-						this.references[reference.manyProp]=reference;
-						referenceTable.references[reference.oneProp]=reference;
-
-						this.fields[fieldName]=new Field({
-							qql: this.qql,
-							name: fieldName,
-							type: pkField.type,
-							notnull: fieldSpec.notnull,
-							default: fieldSpec.default
-						});
-					}
-
-					else {
-						this.fields[fieldName]=new Field({
-							qql: this.qql,
-							name: fieldName, 
-							...fields[fieldName]
-						});
-					}
+					this.fields[fieldName]=new Field({
+						qql: this.qql,
+						name: fieldName, 
+						...fields[fieldName]
+					});
 				}
 			}
 
 			if (Object.keys(this.fields).filter(fid=>this.fields[fid].pk).length!=1)
 				throw new Error("There must be exactly one primary key for table "+this.name);
+		}
+	}
+
+	createReferences() {
+		for (let fieldName in this.fields) {
+			let fieldSpec=this.fields[fieldName];
+			if (fieldSpec.type=="reference") {
+				//console.log("******* creating reference");
+				let referenceTable=this.qql.tables[fieldSpec.reference];
+				if (!referenceTable)
+					throw new Error(
+						"Referenced table doesn't exist: "+fieldSpec.reference+
+						", referenced from: "+this.name
+					);
+
+				let pkField=referenceTable.getPrimaryKeyField();
+
+				let reference=new Reference({
+					oneFrom: referenceTable,
+					oneProp: fieldSpec.refprop,
+					manyFrom: this,
+					manyProp: fieldSpec.prop,
+					manyField: fieldName,
+				});
+
+				if (this.references[reference.manyProp] ||
+						referenceTable.references[reference.oneProp]) {
+					throw new Error("Ambigous reference: "+fieldName+": "+JSON.stringify(fieldSpec));
+				}
+
+				this.references[reference.manyProp]=reference;
+				referenceTable.references[reference.oneProp]=reference;
+
+				this.fields[fieldName]=new Field({
+					qql: this.qql,
+					name: fieldName,
+					type: pkField.type,
+					notnull: fieldSpec.notnull,
+					default: fieldSpec.default
+				});
+			}
 		}
 	}
 

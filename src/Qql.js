@@ -20,6 +20,9 @@ export default class Qql {
 				name: tableName,
 				...tables[tableName]
 			});
+
+		for (let tableName in tables)
+			this.tables[tableName].createReferences(); //tables[tableName]);
 	}
 
 	getTableByName=(tableName)=>{
