@@ -80,11 +80,16 @@ export default class QqlRestServer {
             if (url.searchParams.get("range"))
                 range=JSON.parse(url.searchParams.get("range"));
 
+            let sort;
+            if (url.searchParams.get("sort"))
+                sort=JSON.parse(url.searchParams.get("sort"));
+
             let query={
                 manyFrom: argv[0],
                 where: where,
                 offset: range[0],
-                limit: range[1]-range[0]+1
+                limit: range[1]-range[0]+1,
+                sort: sort
             };
 
             let response=Response.json(await env.query(query));

@@ -1,4 +1,4 @@
-import {canonicalizeJoins} from "../src/qql-util.js";
+import {canonicalizeJoins, canonicalizeSort} from "../src/qql-util.js";
 
 describe("qql-util",()=>{
 	it("can canonicalize joins",()=>{
@@ -26,5 +26,34 @@ describe("qql-util",()=>{
 		})).toEqual(
 			[ { join: 'hello' }, { join: 'world', where: { x: 5 } } ]
 		);
+	})
+
+	it("can canonicalize sort",()=>{
+		expect(
+			canonicalizeSort("hello")
+		).toEqual(
+			{"hello":"asc"}
+		);
+
+		expect(
+			canonicalizeSort(["hello","asc"])
+		).toEqual(
+			{"hello":"asc"}
+		);
+
+		expect(
+			canonicalizeSort([["hello","asc"],["bla","DESC"]])
+		).toEqual(
+			{"hello":"asc","bla":"desc"}
+		);
+
+		expect(canonicalizeSort()).toEqual({});
+		expect(canonicalizeSort({
+			hello: "ASC",
+			world: "DESC"
+		})).toEqual({
+			hello: "asc",
+			world: "desc"
+		});
 	})
 })

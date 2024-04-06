@@ -1,7 +1,7 @@
 import Field from "./Field.js";
 import Reference from "./Reference.js";
 import {arrayOnlyUnique, assertAllowedKeys, arrayify, jsonClone} from "./js-util.js";
-import {canonicalizeJoins} from "./qql-util.js";
+import {canonicalizeJoins, canonicalizeSort} from "./qql-util.js";
 
 export default class Table {
 	constructor({name, qql, fields, viewFrom, singleViewFrom, 
@@ -451,7 +451,7 @@ export default class Table {
 	}
 
 	async queryManyFrom(env, query) {
-		assertAllowedKeys(query,["select","manyFrom","limit","offset","where","join"]);
+		assertAllowedKeys(query,["select","manyFrom","limit","offset","where","join","sort"]);
 		this.assertReadAccess(env);
 
 		let select=query.select;
@@ -467,6 +467,13 @@ export default class Table {
 			" FROM "+
 			this.qql.escapeId(this.getTable().name)+` `+
 			this.createWhereClause(env,query.where);
+
+		let sort=canonicalizeSort(query.sort);
+		if (Object.keys(sort).length) {
+			s+=" ORDER BY "+Object.keys(sort)
+				.map(k=>this.qql.escapeId(k)+" "+sort[k])
+				.join(",");
+		}
 
 		if (query.offset && !query.limit)
 			throw new Error("Can't have offset without limit");
