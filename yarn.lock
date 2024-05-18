@@ -881,10 +881,10 @@ socks@^2.6.2:
     ip "^2.0.0"
     smart-buffer "^4.2.0"
 
-sql.js@^1.10.2:
-  version "1.10.2"
-  resolved "https://registry.yarnpkg.com/sql.js/-/sql.js-1.10.2.tgz#3d0b5ddfecb37c1ea0ff9ae1250ca06af0e20e92"
-  integrity sha512-jnKFtdHxuVUNgu1vHwFoTjjwfTuVDVqzGpw7H05Zq3YMNMDOpLFyFGvpgTRIQGd/mqcYntuMy7iygYCytD62jQ==
+sql.js@^1.10.3:
+  version "1.10.3"
+  resolved "https://registry.yarnpkg.com/sql.js/-/sql.js-1.10.3.tgz#cd05043a9e2667010cd0520180577c90df8dd990"
+  integrity sha512-H46aWtQkdyjZwFQgraUruy5h/DyJBbAK3EA/WEMqiqF6PGPfKBSKBj/er3dVyYqVIoYfRf5TFM/loEjtQIrqJg==
 
 sqlite3@^5.1.7:
   version "5.1.7"

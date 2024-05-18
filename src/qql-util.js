@@ -57,3 +57,17 @@ export function canonicalizeSort(sort) {
 
 	return sort;
 }
+
+export function objectifyRows({columns, values}) {
+	let rows=[];
+
+	for (let valueRow of values) {
+		let o={};
+		for (let i=0; i<columns.length; i++)
+			o[columns[i]]=valueRow[i];
+
+		rows.push(o);
+	}
+
+	return rows;
+}

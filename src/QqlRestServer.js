@@ -51,10 +51,14 @@ export default class QqlRestServer {
         let url=new URL(req.url);
 
         if (this.path) {
-            if (argv[0]!=this.path)
-                return;
+            let splitApiPath=splitPath(this.path);
+            while (splitApiPath.length) {
+                if (argv[0]!=splitApiPath[0])
+                    return;
 
-            argv.shift();
+                argv.shift();
+                splitApiPath.shift();
+            }
         }
 
         // Find Many.
