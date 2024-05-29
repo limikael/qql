@@ -1,12 +1,17 @@
 import {useRef, createContext, useContext} from "react";
-import QqlClient from "./QqlClient.js";
+import {createQqlClient} from "./QqlClient.js";
 
 let QqlContext=createContext();
 
-export function QqlProvider({fetch, url, children}) {
+export function QqlProvider({fetch, url, children, qql}) {
 	let ref=useRef();
-	if (!ref.current)
-		ref.current=new QqlClient({fetch,url});
+	if (!ref.current) {
+		if (qql)
+			ref.current=qql;
+
+		else
+			ref.current=createQqlClient({fetch,url});
+	}
 
 	return (
 		<QqlContext.Provider value={ref.current}>
@@ -16,6 +21,5 @@ export function QqlProvider({fetch, url, children}) {
 }
 
 export function useQql() {
-	let qqlClient=useContext(QqlContext);
-	return qqlClient.query;
+	return useContext(QqlContext);
 }
