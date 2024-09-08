@@ -12,25 +12,29 @@ export default class QqlRestServer {
         let exts=[".jpg",".jpeg",".png",".webp"];
         let contentType=req.headers.get("content-type").split(";")[0];
 
+        //console.log("decoding in qql rest server, contentType="+contentType);
+
         switch (contentType) {
             case "multipart/form-data":
                 let formData=await req.formData();
+                let formDataKeys=Array.from(formData.keys());
                 let record={};
-                for (let [name,data] of formData.entries()) {
-                    if (data instanceof File) {
-                        //console.log("putting: "+data.name+" size: "+data.size);
-
+                for (let key of formDataKeys) {
+                    //console.log("form key: "+key);
+                    let data=formData.get(key);
+                    let type=Object.prototype.toString.call(data)
+                    //console.log("type: "+type);
+                    if ((data instanceof File) ||
+                            type=="[object File]") {
+                        //console.log("it is a file: "+data.name);
                         let ext=getFileExt(data.name).toLowerCase();
-                        /*if (!exts.includes(ext))
-                            throw new Error("Unknown file type: "+ext);*/
-
                         let fn=crypto.randomUUID()+ext;
                         await this.putFile(fn,data);
-                        record[name]=fn;
+                        record[key]=fn;
                     }
 
                     else {
-                        record[name]=JSON.parse(data);
+                        record[key]=JSON.parse(data);
                     }
                 }
 
@@ -43,7 +47,6 @@ export default class QqlRestServer {
         }
 
         throw new Error("Unexpected content type: "+contentType);
-
     }
 
     async handleEnvRequest(env, req) {
