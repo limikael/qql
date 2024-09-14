@@ -62,6 +62,7 @@ export default class Qql {
 			return [];
 
 		//console.log(queryArray);
+		//console.log(this.driver);
 		let results=await this.driver(queryArray,returnType);
 		return results;
 	}
@@ -95,6 +96,7 @@ export default class Qql {
 
 	/*force, test, dryRun, risky*/
 	async migrate(options={}) {
+		console.log("Migrating schema...");
 		let {dryRun}=options;
 
 		let analysis=await this.analyze();
@@ -102,17 +104,21 @@ export default class Qql {
 		//console.log(analysis.tables);
 
 		let migrationQueries=[];
-		for (let tableName in this.tables)
+		for (let tableName in this.tables) {
+			//console.log("Table: "+tableName);
 			migrationQueries=[
 				...migrationQueries,
 				...this.tables[tableName].getMigrationQueries(analysis.tables[tableName])
 			];
+		}
 
 		if (dryRun)
 			console.log(migrationQueries);
 
-		else
+		else {
+			console.log(migrationQueries.join("\n"));
 			await this.runQueries(migrationQueries);
+		}
 	}
 
 	envQuery=async (env, query)=>{

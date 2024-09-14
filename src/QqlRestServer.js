@@ -22,13 +22,14 @@ export default class QqlRestServer {
                 for (let key of formDataKeys) {
                     //console.log("form key: "+key);
                     let data=formData.get(key);
-                    let type=Object.prototype.toString.call(data)
+                    let type=Object.prototype.toString.call(data);
                     //console.log("type: "+type);
                     if ((data instanceof File) ||
                             type=="[object File]") {
                         //console.log("it is a file: "+data.name);
                         let ext=getFileExt(data.name).toLowerCase();
                         let fn=crypto.randomUUID()+ext;
+                        //console.log("putting file: "+fn);
                         await this.putFile(fn,data);
                         record[key]=fn;
                     }
