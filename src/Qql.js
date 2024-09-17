@@ -116,7 +116,8 @@ export default class Qql {
 			console.log(migrationQueries);
 
 		else {
-			console.log(migrationQueries.join("\n"));
+			if (migrationQueries.length)
+				console.log(migrationQueries.join("\n"));
 			await this.runQueries(migrationQueries);
 		}
 	}
