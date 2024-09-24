@@ -174,6 +174,14 @@ export default class Qql {
 			return await table.queryDeleteFrom(env,query);
 		}
 
+		else if (query.upsert) {
+			let table=this.tables[query.upsert];
+			if (!table)
+				throw new Error("No such table: "+query.upsert);
+
+			return await table.queryUpsert(env,query);
+		}
+
 		else
 			throw new Error("Query not understood");
 	}

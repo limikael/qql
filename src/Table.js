@@ -408,7 +408,6 @@ export default class Table {
 			values.join(",")+")";
 
 		let id=await this.qql.runQuery(s,"id");
-
 		if (!query.return)
 			query.return="id";
 
@@ -425,7 +424,12 @@ export default class Table {
 				return items[0];
 				break;
 
-			throw new Error("Unknown return type: "+query.return);
+			case "changes":
+				return 1;
+				break;
+
+			default:
+				throw new Error("Unknown return type: "+query.return);
 		}
 	}
 
@@ -560,6 +564,37 @@ export default class Table {
 
 		else
 			throw new Error("Unable to join: "+JSON.stringify(join));
+	}
+
+	async queryUpsert(env, query) {
+		delete query.upsert;
+		assertAllowedKeys(query,["set","where","return"]);
+
+		if (!query.return)
+			query.return="changes";
+
+		if (query.return!="changes")
+			throw new Error("Upsert only supports 'changes' as return type");
+
+		if (!query.set || !Object.keys(query.set).length)
+			throw new Error("Nothing to set!");
+
+		let changes;
+		changes=await this.queryUpdate(env,{...query, return: "changes"});
+		if (changes>0)
+			return changes;
+
+		query.set={...query.set,...query.where};
+		delete query.where;
+
+		//console.log("********* doing insert via upsert");
+		//console.log(query);
+		changes=await this.queryInsertInto(env,{...query, return: "changes"});
+		//console.log("c: "+changes);
+		if (changes!=1)
+			throw new Error("Expected 1 change");
+
+		return 1;
 	}
 
 	assertReadAccess(env) {
