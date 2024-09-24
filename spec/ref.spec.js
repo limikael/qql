@@ -24,7 +24,7 @@ describe("qql",()=>{
 			}
 		});
 
-		await qql.migrate();
+		await qql.migrate({log: ()=>{}});
 
 		let userId=await qql.query({insertInto: "users", set: {name: "micke"}, return: "id"});
 		await qql.query({insertInto: "posts", set: {id: 1, title: "post 1", user_id: userId}});

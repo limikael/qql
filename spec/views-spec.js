@@ -51,7 +51,7 @@ describe("qql views",()=>{
 			}
 		});
 
-		await qql.migrate();
+		await qql.migrate({log: ()=>{}});
 
 		let uid=await qql({insertInto: "users", set: {name: "micke"}});
 		let uid2=await qql({insertInto: "users", set: {name: "micke2"}});

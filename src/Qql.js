@@ -96,8 +96,11 @@ export default class Qql {
 
 	/*force, test, dryRun, risky*/
 	async migrate(options={}) {
-		console.log("Migrating schema...");
-		let {dryRun}=options;
+		let {dryRun, log}=options;
+		if (!log)
+			log=console.log;
+
+		log("Migrating schema...");
 
 		let analysis=await this.analyze();
 
@@ -113,11 +116,11 @@ export default class Qql {
 		}
 
 		if (dryRun)
-			console.log(migrationQueries);
+			log(migrationQueries);
 
 		else {
 			if (migrationQueries.length)
-				console.log(migrationQueries.join("\n"));
+				log(migrationQueries.join("\n"));
 			await this.runQueries(migrationQueries);
 		}
 	}

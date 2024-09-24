@@ -15,7 +15,7 @@ describe("sorting",()=>{
 			}
 		});
 
-		await qql.migrate();
+		await qql.migrate({log: ()=>{}});
 		await qql({insertInto: "posts", set: {published: "2024-04-06"}});
 		await qql({insertInto: "posts", set: {published: "2024-04-05"}});
 

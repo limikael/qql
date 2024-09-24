@@ -19,7 +19,7 @@ describe("qql",()=>{
 			}
 		});
 
-		await qql.migrate();
+		await qql.migrate({log: ()=>{}});
 		await qql({insertInto: "users", set: {name: "micke"}});
 		await qql({insertInto: "users", set: {name: "micke2",num: 123}});
 

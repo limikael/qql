@@ -16,7 +16,7 @@ describe("aggregate",()=>{
 			}
 		});
 
-		await qql.migrate();
+		await qql.migrate({log: ()=>{}});
 
 		await qql({insertInto: "users", set: {name: "micke1", num: 1}});
 		await qql({insertInto: "users", set: {name: "micke2", num: 2}});

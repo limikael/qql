@@ -16,7 +16,7 @@ describe("ops",()=>{
 			}
 		});
 
-		await qql.migrate();
+		await qql.migrate({log: ()=>{}});
 		//qql=qql.role("admin");
 
 		await qql({deleteFrom: "users"});

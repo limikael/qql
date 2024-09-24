@@ -38,7 +38,7 @@ describe("qql",()=>{
 
 		let item;
 
-		await qql.migrate();
+		await qql.migrate({log: ()=>{}});
 		item=await qql.env({uid: 1, role: "user"}).query({oneFrom: "about_me"});
 		//console.log(item);
 

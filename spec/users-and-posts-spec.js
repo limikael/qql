@@ -26,8 +26,8 @@ describe("qql",()=>{
 			}
 		});
 
-		await qql.migrate();
-		await qql.migrate();
+		await qql.migrate({log: ()=>{}});
+		await qql.migrate({log: ()=>{}});
 //		qql=qql.role("admin");
 
 		await qql.query({deleteFrom: "users"});

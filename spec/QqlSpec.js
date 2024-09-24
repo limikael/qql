@@ -18,7 +18,7 @@ describe("qql",()=>{
 			}
 		});
 
-		await qql.migrate();
+		await qql.migrate({log: ()=>{}});
 
 		let query=qql; //.querrole("admin");
 

@@ -18,7 +18,7 @@ describe("qql secutiry",()=>{
 			}
 		});
 
-		await qql.migrate();
+		await qql.migrate({log: ()=>{}});
 
 		/*let v=await qql({insertInto: "users", set: {name: "micke"}, return: "id"});
 		expect(v).toEqual(1);*/

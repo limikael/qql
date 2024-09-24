@@ -20,7 +20,7 @@ describe("qql secutiry",()=>{
 			}
 		});
 
-		await qql.migrate();
+		await qql.migrate({log: ()=>{}});
 
 		await qql({insertInto: "users", set: {name: "micke"}});
 
