@@ -14,6 +14,7 @@ export default class QqlClient {
 
 	query=async(query)=>{
 		//console.log("query ",this.url,"query",query);
+		//console.log(JSON.stringify(query));
 
 		let response=await this.fetch(this.url,{
 			method: "POST",

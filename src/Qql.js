@@ -128,10 +128,15 @@ export default class Qql {
 	envQuery=async (env, query)=>{
 		if (query.oneFrom) {
 			let {oneFrom, ...q}=query;
-			return (await this.envQuery(env,{
+			let rows=await this.envQuery(env,{
 				...q,
 				manyFrom: query.oneFrom,
-			}))[0];
+			});
+
+			if (!rows.length)
+				return null;
+
+			return rows[0];
 		}
 
 		else if (query.manyFrom) {
