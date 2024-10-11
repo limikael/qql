@@ -1,7 +1,7 @@
 import sqlite3 from "sqlite3";
 import {createQql} from "../src/drivers.js";
 
-describe("qql",()=>{
+describe("qql single view",()=>{
 	it("works",async()=>{
 		let qql=createQql({
 			sqlite: new sqlite3.Database(':memory:'),
@@ -21,7 +21,7 @@ describe("qql",()=>{
 						content: {type: "text"},
 						num: {type: "integer", default: 123},
 						othernum: {type: "integer", default: 888},
-						user_id: {type: "reference", reference: "users", prop: "user", /*, refprop: "authored"*/},
+						user_id: {type: "reference", reference: "users", /*prop: "user", / *, refprop: "authored"*/},
 					}
 				},
 

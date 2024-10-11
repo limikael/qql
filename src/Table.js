@@ -1,5 +1,5 @@
 import Field from "./Field.js";
-import Reference from "./Reference.js";
+//import Reference from "./Reference.js";
 import {arrayOnlyUnique, assertAllowedKeys, arrayify, jsonClone} from "./js-util.js";
 import {canonicalizeJoins, canonicalizeSort} from "./qql-util.js";
 
@@ -12,7 +12,6 @@ export default class Table {
 		this.recordRepresentation=recordRepresentation;
 		this.name=name;
 		this.qql=qql;
-		this.references={};
 
         if (!access && !readAccess) {
             access="admin";
@@ -101,22 +100,6 @@ export default class Table {
 
 				let pkField=referenceTable.getPrimaryKeyField();
 
-				let reference=new Reference({
-					oneFrom: referenceTable,
-					oneProp: fieldSpec.refprop,
-					manyFrom: this,
-					manyProp: fieldSpec.prop,
-					manyField: fieldName,
-				});
-
-				if (this.references[reference.manyProp] ||
-						referenceTable.references[reference.oneProp]) {
-					throw new Error("Ambigous reference: "+fieldName+": "+JSON.stringify(fieldSpec));
-				}
-
-				this.references[reference.manyProp]=reference;
-				referenceTable.references[reference.oneProp]=reference;
-
 				this.fields[fieldName]=new Field({
 					qql: this.qql,
 					name: fieldName,
@@ -124,6 +107,8 @@ export default class Table {
 					notnull: fieldSpec.notnull,
 					default: fieldSpec.default
 				});
+
+				this.fields[fieldName].reference=referenceTable.name;
 			}
 		}
 	}
@@ -455,7 +440,7 @@ export default class Table {
 	}
 
 	async queryManyFrom(env, query) {
-		assertAllowedKeys(query,["select","manyFrom","limit","offset","where","join","sort"]);
+		assertAllowedKeys(query,["select","manyFrom","limit","offset","where","include",/*"join",*/"sort"]);
 		this.assertReadAccess(env);
 
 		let select=query.select;
@@ -500,8 +485,11 @@ export default class Table {
 			return row;
 		});
 
-		for (let join of canonicalizeJoins(query.join))
-			await this.handleJoin(env,rows,join);
+		/*for (let join of canonicalizeJoins(query.join))
+			await this.handleJoin(env,rows,join);*/
+
+		for (let includeName in query.include)
+			await this.handleInclude(env,rows,includeName,query.include[includeName]);
 
 		if (!rows.length && this.singleton) {
 			return [
@@ -512,58 +500,97 @@ export default class Table {
 		return rows;
 	}
 
-	async handleJoin(env, rows, joinSpecArg) {
-		let {join, ...joinSpec}=joinSpecArg;
-		let reference=this.references[join];
+	findReferencingField(referenceTableName) {
+		let manyField;
+		for (let fieldName in this.fields) {
+			if (this.fields[fieldName].reference==referenceTableName) {
+				if (manyField)
+					throw new Error("Ambigous relation");
 
-		if (!reference)
-			throw new Error("Unknown join: "+JSON.stringify(join));
+				manyField=this.fields[fieldName].name
+			}
+		}
 
-		if (reference.oneFrom==this && reference.oneProp==join) {
+		if (!manyField)
+			throw new Error("No fitting relation found");
+
+		return manyField;
+	}
+
+	async handleInclude(env, rows, fieldName, include) {
+		let includeQuery={...include};
+
+		if (includeQuery.manyFrom) {
+			let refTable=this.qql.tables[includeQuery.manyFrom];
+			if (!refTable)
+				throw new Error("Included table not found: "+includeQuery.manyFrom);
+
+			/*console.log("including: ",refTable.name);
+			console.log(refTable.fields);*/
+
+			let via=includeQuery.via;
+			if (!via)
+				via=refTable.findReferencingField(this.name);
+
 			let thisPk=this.getPrimaryKeyField().name;
 			let keys=arrayOnlyUnique(rows.map(row=>row[thisPk]));
 
 			let rowByPk=Object.fromEntries(rows.map(row=>[row[thisPk],row]));
+
+			delete includeQuery.via;
 			let refRows=await this.qql.envQuery(env,{
-				...joinSpec,
-				manyFrom: reference.manyFrom.name,
+				...includeQuery,
+				manyFrom: refTable.name,
 				where: {
-					...joinSpec.where,
-					[reference.manyField]: keys
+					...includeQuery.where,
+					[via]: keys
 				}
 			});
 
 			for (let row of rows)
-				row[reference.oneProp]=[];
+				row[fieldName]=[];
 
 			for (let refRow of refRows) {
-				let row=rowByPk[refRow[reference.manyField]];
-				row[reference.oneProp].push(refRow);
+				let row=rowByPk[refRow[via]];
+				row[fieldName].push(refRow);
 			}
 		}
 
-		else if (reference.manyFrom==this && reference.manyProp==join) {
-			let refPk=reference.oneFrom.getPrimaryKeyField().name;
-			let keys=arrayOnlyUnique(rows.map(row=>row[reference.manyField]).filter(r=>!!r));
+		else if (includeQuery.oneFrom) {
+			let refTable=this.qql.tables[includeQuery.oneFrom];
+			if (!refTable)
+				throw new Error("Included table not found: "+includeQuery.fromFrom);
 
-			let refRows=await this.qql.query({
-				...joinSpec,
-				manyFrom: reference.oneFrom.name,
+			let via=includeQuery.via;
+			if (!via)
+				via=this.findReferencingField(refTable.name);
+
+			let refPk=refTable.getPrimaryKeyField().name;
+			let keys=arrayOnlyUnique(rows.map(row=>row[via]).filter(r=>!!r));
+
+			delete includeQuery.oneFrom;
+			delete includeQuery.via;
+
+			let refRows=await this.qql.envQuery(env,{
+				...includeQuery,
+				manyFrom: refTable.name,
 				where: {
-					...joinSpec.where,
+					...includeQuery.where,
 					[refPk]: keys
 				}
 			});
 
+			//console.log(refRows);
+
 			let refRowsByPk=Object.fromEntries(refRows.map(row=>[row[refPk],row]));
 			for (let row of rows)
-				row[reference.manyProp]=refRowsByPk[row[reference.manyField]];
+				row[fieldName]=refRowsByPk[row[via]];
 
 			return rows;
 		}
 
-		else
-			throw new Error("Unable to join: "+JSON.stringify(join));
+		else 
+			throw new Error("include spec must have oneFrom or manyFrom");
 	}
 
 	async queryUpsert(env, query) {

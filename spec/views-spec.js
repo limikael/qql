@@ -20,7 +20,7 @@ describe("qql views",()=>{
 						id: {type: "integer", pk: true, notnull: true},
 						title: {type: "text"},
 						content: {type: "text"},
-						user_id: {type: "reference", prop: "user", reference: "users"},
+						user_id: {type: "reference", reference: "users"},
 						meta: {type: "json"},
 						published: {type: "boolean", notnull: true, default: false}
 					}
