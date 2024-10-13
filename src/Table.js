@@ -1,6 +1,6 @@
 import Field from "./Field.js";
 //import Reference from "./Reference.js";
-import {arrayOnlyUnique, assertAllowedKeys, arrayify, jsonClone} from "./js-util.js";
+import {arrayOnlyUnique, assertAllowedKeys, arrayify, jsonClone, arrayDifference} from "./js-util.js";
 import {canonicalizeJoins, canonicalizeSort} from "./qql-util.js";
 
 export default class Table {
@@ -440,12 +440,15 @@ export default class Table {
 	}
 
 	async queryManyFrom(env, query) {
-		assertAllowedKeys(query,["select","manyFrom","limit","offset","where","include",/*"join",*/"sort"]);
+		assertAllowedKeys(query,["select","unselect","manyFrom","limit","offset","where","include","sort"]);
 		this.assertReadAccess(env);
 
 		let select=query.select;
 		if (!select)
 			select=Object.keys(this.fields);
+
+		if (query.unselect)
+			select=arrayDifference(select,query.unselect);
 
 		for (let col of select)
 			if (!this.fields[col])

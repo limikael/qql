@@ -6,6 +6,10 @@ export function arrayOnlyUnique(a) {
 	return a.filter(onlyUnique);
 }
 
+export function arrayDifference(a, b) {
+    return a.filter(item=>!b.includes(item));   
+}
+
 export function objectifyArgs(params, fields) {
     function isPlainObject(value) {
         if (!value)
