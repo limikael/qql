@@ -17,13 +17,16 @@ export default class QqlServer {
         if (!jsonEq(argv,this.pathComponents))
         	return;
 
+        let headers=new Headers();
+        headers.set("Access-Control-Allow-Origin","*");
+
         let query=await req.json();
         try {
-        	return Response.json(await env.query(query));
+        	return Response.json(await env.query(query),{headers});
         }
 
         catch (e) {
-        	return new Response(e.message,{status: 500});
+        	return new Response(e.message,{status: 500, headers});
         }
 	}
 
