@@ -1,6 +1,7 @@
 import sqlite3 from "sqlite3";
-import {qqlDriverSqlite, createQql} from "../src/drivers.js";
+import {qqlDriverSqlite} from "../src/drivers.js";
 import QqlRestServer from "../src/QqlRestServer.js";
+import {createQql} from "../src/Qql.js";
 
 describe("qql",()=>{
 	it("works",async()=>{
@@ -81,7 +82,7 @@ describe("qql",()=>{
 
 	it("works",async()=>{
 		let qql=createQql({
-			sqlite: new sqlite3.Database(':memory:'),
+			driver: qqlDriverSqlite(new sqlite3.Database(':memory:')),
 			tables: {
 				users: {
 					fields: {
@@ -116,7 +117,7 @@ describe("qql",()=>{
 
 	it("works with range",async()=>{
 		let qql=createQql({
-			sqlite: new sqlite3.Database(':memory:'),
+			driver: qqlDriverSqlite(new sqlite3.Database(':memory:')),
 			tables: {
 				users: {
 					fields: {

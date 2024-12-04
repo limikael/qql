@@ -129,7 +129,7 @@ export function qqlDriverSqlite(sqlite) {
 	}
 }
 
-function wrapQqlEnv(qqlEnv) {
+/*function wrapQqlEnv(qqlEnv) {
 	let fn=(o)=>qqlEnv.query(o);
 	fn.query=fn;
 	fn.getTableByName=qqlEnv.qql.getTableByName;
@@ -148,4 +148,4 @@ export function createQql(...args) {
 
 	let qql=new Qql(conf);
 	return wrapQqlEnv(qql.rootEnv);
-}
+}*/

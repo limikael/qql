@@ -1,10 +1,11 @@
 import sqlite3 from "sqlite3";
-import {createQql} from "../src/drivers.js";
+import {createQql} from "../src/Qql.js";
+import {qqlDriverSqlite} from "../src/drivers.js";
 
 describe("qql views",()=>{
 	it("works",async()=>{
 		let qql=createQql({
-			sqlite: new sqlite3.Database(':memory:'),
+			driver: qqlDriverSqlite(new sqlite3.Database(':memory:')),
 			tables: {
 				users: {
 					access: "admin",

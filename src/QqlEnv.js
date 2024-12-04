@@ -1,5 +1,9 @@
-export default class QqlEnv {
+import {CallableClass} from "./js-util.js";
+
+export default class QqlEnv extends CallableClass {
 	constructor({qql, root, env}) {
+		super(q=>this.query(q));
+
 		this.root=root;
 		this.qql=qql;
 

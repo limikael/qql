@@ -1,6 +1,7 @@
 import sqlite3 from "sqlite3";
-import {qqlDriverSqlite, createQql} from "../src/drivers.js";
+import {qqlDriverSqlite} from "../src/drivers.js";
 import QqlServer from "../src/QqlServer.js";
+import {createQql} from "../src/Qql.js";
 
 describe("qql",()=>{
 	it("works",async()=>{

@@ -1,10 +1,11 @@
 import sqlite3 from "sqlite3";
-import {createQql} from "../src/drivers.js";
+import {createQql} from "../src/Qql.js";
+import {qqlDriverSqlite} from "../src/drivers.js";
 
 describe("qql secutiry",()=>{
 	it("works",async()=>{
 		let qql=createQql({
-			sqlite: new sqlite3.Database(':memory:'),
+			driver: qqlDriverSqlite(new sqlite3.Database(':memory:')),
 			tables: {
 				users: {
 					access: "writer",
@@ -24,7 +25,13 @@ describe("qql secutiry",()=>{
 
 		await qql({insertInto: "users", set: {name: "micke"}});
 
-		await qql.env({role: "reader"}).query({oneFrom: "users"});
+		let readerQql=qql.env({role: "reader"});
+		let res=await readerQql({oneFrom: "users"});
+		//let res=await readerQql.query({oneFrom: "users"});
+		//let res=await qql.env({role: "reader"}).query({oneFrom: "users"});
+
+		expect(res.name).toEqual("micke");
+
 		await qql.env({role: "writer"}).query({oneFrom: "users"});
 
 		await qql.env({role: "writer"}).query({insertInto: "users", set:{name: "micke2"}});

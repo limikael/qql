@@ -2,11 +2,15 @@ import Table from "./Table.js";
 import sqliteSqlstring from "sqlstring-sqlite";
 import mysqlSqlstring from "sqlstring";
 import QqlAnalysis from "./QqlAnalysis.js";
-import {arrayOnlyUnique} from "./js-util.js";
+import {arrayOnlyUnique, objectifyArgs, CallableClass} from "./js-util.js";
 import QqlEnv from "./QqlEnv.js";
 
-export default class Qql {
-	constructor({tables, driver, flavour}) {
+export default class Qql extends CallableClass {
+	constructor(...args) {
+		let {driver, tables, flavour}=objectifyArgs(args,["driver"]);
+
+		super((q,r)=>this.query(q,r));
+
 		this.flavour=flavour;
 		if (!this.flavour)
 			this.flavour="sqlite";
@@ -194,4 +198,8 @@ export default class Qql {
 	query=async (query)=>{
 		return this.envQuery(this.rootEnv,query);
 	}
+}
+
+export function createQql(...args) {
+	return new Qql(...args);
 }
