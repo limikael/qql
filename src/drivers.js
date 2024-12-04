@@ -128,24 +128,3 @@ export function qqlDriverSqlite(sqlite) {
 		return res;
 	}
 }
-
-/*function wrapQqlEnv(qqlEnv) {
-	let fn=(o)=>qqlEnv.query(o);
-	fn.query=fn;
-	fn.getTableByName=qqlEnv.qql.getTableByName;
-	fn.rootEnv=qqlEnv.qql.rootEnv;
-	fn.migrate=(...args)=>qqlEnv.qql.migrate(...args);
-	fn.env=(env)=>wrapQqlEnv(qqlEnv.qql.env(env));
-
-	return fn;
-}
-
-export function createQql(...args) {
-	let conf=objectifyArgs(args,["driver"]);
-
-	if (conf.sqlite)
-		conf.driver=qqlDriverSqlite(conf.sqlite);
-
-	let qql=new Qql(conf);
-	return wrapQqlEnv(qql.rootEnv);
-}*/
