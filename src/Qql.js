@@ -26,7 +26,7 @@ export default class Qql extends CallableClass {
 			});
 
 		for (let tableName in tables)
-			this.tables[tableName].createReferences(); //tables[tableName]);
+			this.tables[tableName].createReferences();
 	}
 
 	getTableByName=(tableName)=>{
