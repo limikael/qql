@@ -1,15 +1,16 @@
-import {objectifyArgs} from "./js-util.js";
+import {objectifyArgs, CallableClass} from "./js-util.js";
 
-export default class QqlClient {
-	constructor({fetch, url, headers}) {
-		//console.log("QqlClient ctor:",url,fetch);
+export default class QqlClient extends CallableClass {
+	constructor(...args) {
+		super(q=>this.query(q));
 
-		if (!fetch)
-			fetch=globalThis.fetch.bind(globalThis);
+		let options=objectifyArgs(args,["url"])
+		this.url=options.url;
+		this.fetch=options.fetch;
+		this.headers=options.headers;
 
-		this.url=url;
-		this.fetch=fetch;
-		this.headers=headers;
+		if (!this.fetch)
+			this.fetch=globalThis.fetch.bind(globalThis);
 	}
 
 	query=async(query)=>{
@@ -32,11 +33,5 @@ export default class QqlClient {
 }
 
 export function createQqlClient(...args) {
-	//console.log("createQqlClient:",args);//, fetch=",fetch," url="+url);
-
-	let options=objectifyArgs(args,["url"])
-	//console.log("options",options);
-	let qqlClient=new QqlClient(options);
-
-	return (query=>qqlClient.query(query));
+	return new QqlClient(...args);
 }

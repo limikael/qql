@@ -76,3 +76,9 @@ export function jsonClone(v) {
 export function jsonEq(a,b) {
     return (JSON.stringify(a)==JSON.stringify(b));
 }
+
+export class CallableClass extends Function {
+    constructor(f) {
+        return Object.setPrototypeOf(f, new.target.prototype);
+    }
+}
