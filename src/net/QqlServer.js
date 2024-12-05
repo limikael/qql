@@ -1,4 +1,4 @@
-import {splitPath, jsonEq} from "./js-util.js";
+import {splitPath, jsonEq} from "../utils/js-util.js";
 
 export default class QqlServer {
 	constructor(qql, options={}) {

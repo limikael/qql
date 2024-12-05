@@ -291,7 +291,7 @@ export default class Table {
 			"SET "+sets.join(",")+" "+
 			this.createWhereClause(env,query.where);
 
-		let changes=await this.qql.runQuery(s,"changes");
+		let changes=await this.qql.runQuery(s,[],"changes");
 		if (this.singleton && !changes) {
 			this.performQueryInsertInto(env,{
 				set: {...query.where, ...query.set}
@@ -435,7 +435,7 @@ export default class Table {
 			this.qql.escapeId(this.getTable().name)+` `+
 			this.createWhereClause(env,query.where);
 
-		let rows=await this.qql.runQuery(s);
+		let rows=await this.qql.runQuery(s,[],"rows");
 		return rows[0].count;
 	}
 

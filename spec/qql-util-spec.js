@@ -1,4 +1,4 @@
-import {canonicalizeJoins, canonicalizeSort} from "../src/qql-util.js";
+import {canonicalizeJoins, canonicalizeSort} from "../src/lib/qql-util.js";
 
 describe("qql-util",()=>{
 	it("can canonicalize joins",()=>{

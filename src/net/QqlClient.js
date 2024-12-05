@@ -1,4 +1,4 @@
-import {objectifyArgs, CallableClass} from "./js-util.js";
+import {objectifyArgs, CallableClass} from "../utils/js-util.js";
 
 export default class QqlClient extends CallableClass {
 	constructor(...args) {

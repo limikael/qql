@@ -1,12 +1,12 @@
 import sqlite3 from "sqlite3";
-import {qqlDriverSqlite} from "../src/drivers.js";
-import QqlRestServer from "../src/QqlRestServer.js";
-import {createQql} from "../src/Qql.js";
+import QqlDriverSqlite from "../src/drivers/QqlDriverSqlite.js";
+import QqlRestServer from "../src/net/QqlRestServer.js";
+import {createQql} from "../src/qql/Qql.js";
 
 describe("qql",()=>{
 	it("works",async()=>{
-		let sqliteDriver=qqlDriverSqlite(new sqlite3.Database(':memory:'));
-		let qql=createQql(sqliteDriver,{
+		let qql=createQql({
+			driver: new QqlDriverSqlite(new sqlite3.Database(':memory:')),
 			tables: {
 				users: {
 					fields: {
@@ -82,7 +82,7 @@ describe("qql",()=>{
 
 	it("works",async()=>{
 		let qql=createQql({
-			driver: qqlDriverSqlite(new sqlite3.Database(':memory:')),
+			driver: new QqlDriverSqlite(new sqlite3.Database(':memory:')),
 			tables: {
 				users: {
 					fields: {
@@ -117,7 +117,7 @@ describe("qql",()=>{
 
 	it("works with range",async()=>{
 		let qql=createQql({
-			driver: qqlDriverSqlite(new sqlite3.Database(':memory:')),
+			driver: new QqlDriverSqlite(new sqlite3.Database(':memory:')),
 			tables: {
 				users: {
 					fields: {

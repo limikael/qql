@@ -1,4 +1,4 @@
-import {splitPath, getFileExt} from "./js-util.js";
+import {splitPath, getFileExt} from "../utils/js-util.js";
 
 export default class QqlRestServer {
 	constructor(qql, options={}) {

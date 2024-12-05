@@ -1,12 +1,11 @@
 import sqlite3 from "sqlite3";
-import {createQql} from "../src/Qql.js";
-import {qqlDriverSqlite} from "../src/drivers.js";
+import {createQql} from "../src/qql/Qql.js";
+import QqlDriverSqlite from "../src/drivers/QqlDriverSqlite.js";
 
 describe("qql single view",()=>{
 	it("works",async()=>{
 		let qql=createQql({
-			driver: qqlDriverSqlite(new sqlite3.Database(':memory:')),
-			role: "admin",
+			driver: new QqlDriverSqlite(new sqlite3.Database(':memory:')),
 			tables: {
 				users: {
 					fields: {
