@@ -1,4 +1,4 @@
-import {jsonClone} from "./js-util.js";
+import {jsonClone} from "../utils/js-util.js";
 
 export default class Field {
 	constructor(spec) {

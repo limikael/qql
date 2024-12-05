@@ -1,4 +1,4 @@
-import {CallableClass} from "./js-util.js";
+import {CallableClass} from "../utils/js-util.js";
 
 export default class QqlEnv extends CallableClass {
 	constructor({qql, root, env}) {

@@ -1,19 +1,14 @@
 import Table from "./Table.js";
-import sqliteSqlstring from "sqlstring-sqlite";
 import mysqlSqlstring from "sqlstring";
 import QqlAnalysis from "./QqlAnalysis.js";
-import {arrayOnlyUnique, objectifyArgs, CallableClass} from "./js-util.js";
+import {arrayOnlyUnique, objectifyArgs, CallableClass} from "../utils/js-util.js";
 import QqlEnv from "./QqlEnv.js";
 
 export default class Qql extends CallableClass {
 	constructor(...args) {
-		let {driver, tables, flavour}=objectifyArgs(args,["driver"]);
+		let {driver, tables}=objectifyArgs(args,["driver"]);
 
 		super((q,r)=>this.query(q,r));
-
-		this.flavour=flavour;
-		if (!this.flavour)
-			this.flavour="sqlite";
 
 		this.rootEnv=new QqlEnv({root: true, qql: this});
 		this.driver=driver;
@@ -38,13 +33,7 @@ export default class Qql extends CallableClass {
 	}
 
 	escapeId=(id)=>{
-		switch (this.flavour) {
-			case "sqlite":
-				return sqliteSqlstring.escapeId(id);
-
-			case "mysql":
-				return mysqlSqlstring.escapeId(id);
-		}
+		return this.driver.escapeId(id);
 	}
 
 	escapeValue=(value)=>{
@@ -52,32 +41,33 @@ export default class Qql extends CallableClass {
 				&& value!==null)
 			throw new Error("Not primitive type: "+value);
 
-		switch (this.flavour) {
-			case "sqlite":
-				return sqliteSqlstring.escape(value);
-
-			case "mysql":
-				return mysqlSqlstring.escape(value);
-		}
+		return this.driver.escapeValue(value);
 	}
 
-	async runQueries(queryArray, returnType="rows") {
+	async runQueries(queryArray, returnType) {
 		if (!queryArray.length)
 			return [];
 
-		//console.log(queryArray);
-		//console.log(this.driver);
-		let results=await this.driver(queryArray,returnType);
+		if (!returnType)
+			throw new Error("no return type");
+
+		let results=await this.driver.queries(queryArray,returnType);
 		return results;
 	}
 
-	async runQuery(query, returnType="rows") {
-		let results=await this.runQueries([query],returnType);
-		return results[0];
+	async runQuery(query, params, returnType) {
+		if (!Array.isArray(params))
+			throw new Error("params should be array!");
+
+		if (!returnType)
+			throw new Error("no return type");
+
+		let res=await this.driver.query(query,params,returnType);
+		return res;
 	}
 
 	async analyze() {
-		let nameRows=await this.runQuery("SELECT name FROM sqlite_schema");
+		let nameRows=await this.runQuery("SELECT name FROM sqlite_schema",[],"rows");
 		nameRows=nameRows.filter(row=>!row.name.startsWith("_cf"));
 		//console.log(nameRows);
 
@@ -88,7 +78,7 @@ export default class Qql extends CallableClass {
 		//console.log(infoQueries);
 
 		let existingTables={};
-		let infoRes=await this.runQueries(infoQueries);
+		let infoRes=await this.runQueries(infoQueries,"rows");
 		for (let i in nameRows) {
 			let tableName=nameRows[i].name;
 			//console.log(infoRes[i]);
@@ -125,7 +115,7 @@ export default class Qql extends CallableClass {
 		else {
 			if (migrationQueries.length)
 				log(migrationQueries.join("\n"));
-			await this.runQueries(migrationQueries);
+			await this.runQueries(migrationQueries,"none");
 		}
 	}
 

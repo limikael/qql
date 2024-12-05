@@ -1,7 +1,7 @@
 import Field from "./Field.js";
 //import Reference from "./Reference.js";
-import {arrayOnlyUnique, assertAllowedKeys, arrayify, jsonClone, arrayDifference} from "./js-util.js";
-import {canonicalizeJoins, canonicalizeSort} from "./qql-util.js";
+import {arrayOnlyUnique, assertAllowedKeys, arrayify, jsonClone, arrayDifference} from "../utils/js-util.js";
+import {canonicalizeJoins, canonicalizeSort} from "../lib/qql-util.js";
 
 export default class Table {
 	constructor({name, qql, fields, viewFrom, singleViewFrom, 
@@ -346,7 +346,7 @@ export default class Table {
 			this.qql.escapeId(this.getTable().name)+" "+
 			this.createWhereClause(env,query.where);
 
-		let changes=await this.qql.runQuery(s,"changes");
+		let changes=await this.qql.runQuery(s,[],"changes");
 
 		if (!query.return)
 			query.return="changes";
@@ -392,7 +392,7 @@ export default class Table {
 			fieldNames.join(",")+") VALUES ("+
 			values.join(",")+")";
 
-		let id=await this.qql.runQuery(s,"id");
+		let id=await this.qql.runQuery(s,[],"id");
 		if (!query.return)
 			query.return="id";
 
@@ -477,7 +477,7 @@ export default class Table {
 		}
 
 		//console.log(s);
-		let rows=await this.qql.runQuery(s);
+		let rows=await this.qql.runQuery(s,[],"rows");
 		rows=rows.map(row=>{
 			for (let fieldName in this.fields) {
 				let field=this.fields[fieldName];
