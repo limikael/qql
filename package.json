@@ -16,7 +16,7 @@
     "sqlite3": "^5.1.7"
   },
   "exports": {
-    ".": "./src/exports.js",
-    "./react": "./src/qql-react.jsx"
+    ".": "./src/lib/exports.js",
+    "./react": "./src/lib/qql-react.jsx"
   }
 }
