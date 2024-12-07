@@ -1,5 +1,5 @@
 import {useRef, createContext, useContext} from "react";
-import {createQqlClient} from "./QqlClient.js";
+import {createQqlClient} from "../net/QqlClient.js";
 
 let QqlContext=createContext();
 
