@@ -1,4 +1,5 @@
 import {jsonClone} from "../utils/js-util.js";
+import {qfill} from "../lib/qql-util.js";
 
 export default class Field {
 	constructor(spec) {
@@ -75,19 +76,27 @@ export default class Field {
 			op="=";
 
 		if (op=="=" && Array.isArray(value))
-			return (
-				this.qql.escapeId(this.name)+" IN ("+
+			return {
+				sql: this.qql.escapeId(this.name)+" IN ("+qfill(value.length)+")",
+				params: value
+			};
+
+			/*this.qql.escapeId(this.name)+" IN ("+
 				value.map(v=>this.qql.escapeValue(v)).join(",")+")"
-			);
+			);*/
 
 		else {
 			switch (op) {
 				case "~":
-					let s=
+					return {
+						sql: "UPPER("+this.qql.escapeId(this.name)+") LIKE ?",
+						params: ["%"+String(value).toUpperCase()+"%"]
+					}
+					/*let s=
 						"UPPER("+this.qql.escapeId(this.name)+") LIKE "+
 						this.qql.escapeValue("%"+String(value).toUpperCase()+"%")
 
-					return s;
+					return s;*/
 					break;
 
 				case "=":
@@ -95,9 +104,13 @@ export default class Field {
 				case "<":
 				case ">=":
 				case "<=":
-					return (
+					return {
+						sql: this.qql.escapeId(this.name)+op+"?",
+						params: [value]
+					}
+					/*return (
 						this.qql.escapeId(this.name)+op+this.qql.escapeValue(value)
-					);
+					);*/
 					break;
 
 				default:

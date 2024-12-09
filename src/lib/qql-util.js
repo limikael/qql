@@ -71,3 +71,7 @@ export function objectifyRows({columns, values}) {
 
 	return rows;
 }
+
+export function qfill(count) {
+	return new Array(count).fill("?").join(",");
+}

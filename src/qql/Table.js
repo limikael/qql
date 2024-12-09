@@ -166,7 +166,8 @@ export default class Table {
 		if (!where)
 			where={};
 
-		let exprs=[];
+		let whereParts=[];
+		let whereParams=[];
 		for (let k in where) {
 			let m=k.match(/^(\w+)([!=<>~%^]*)$/);
 			if (!m)
@@ -178,19 +179,30 @@ export default class Table {
 			if (!this.fields[name])
 				throw new Error("No such field: "+name);
 
-			exprs.push(this.fields[name].createWhereExpression(where[k],op));
+			let w=this.fields[name].createWhereExpression(where[k],op);
+			whereParts.push(w.sql);
+			whereParams.push(...w.params);
 		}
 
 		if (this.isView()) {
 			let fields=this.getTable().fields;
-			for (let k in this.where)
-				exprs.push(fields[k].createWhereExpression(env.substituteVars(this.where[k])));
+			for (let k in this.where) {
+				let w=fields[k].createWhereExpression(env.substituteVars(this.where[k]));
+				whereParts.push(w.sql);
+				whereParams.push(...w.params);
+			}
 		}
 
-		if (!exprs.length)
-			return "";
+		if (!whereParts.length)
+			return {
+				sql: "",
+				params: []
+			};
 
-		return "WHERE "+exprs.join(" AND ");
+		return {
+			sql: "WHERE "+whereParts.join(" AND"),
+			params: whereParams
+		};
 	}
 
 	isCurrent(existingTable) {
@@ -260,17 +272,20 @@ export default class Table {
 		assertAllowedKeys(query,["update","where","set","return"]);
 		this.assertWriteAccess(env);
 
-		let sets=[];
+		let setParts=[];
+		let setParams=[];
 		for (let k in query.set) {
 			if (!this.fields[k])
 				throw new Error("No such field: "+k);
 
 			let field=this.fields[k];
+			setParts.push(this.qql.escapeId(k)+"=?");
+			setParams.push(field.represent(query.set[k]));
 
-			sets.push(
+			/*sets.push(
 				this.qql.escapeId(k)+"="+
 				this.qql.escapeValue(field.represent(query.set[k]))
-			);
+			);*/
 		}
 
 		let affectedId;
@@ -285,13 +300,16 @@ export default class Table {
 				affectedId=affectedRows[0][this.getPrimaryKeyFieldName()];
 		}
 
+		let w=this.createWhereClause(env,query.where);
 		let s=
 			"UPDATE "+
 			this.qql.escapeId(this.getTable().name)+" "+
-			"SET "+sets.join(",")+" "+
-			this.createWhereClause(env,query.where);
+			"SET "+setParts.join(",")+" "+
+			w.sql;
+//			this.createWhereClause(env,query.where);
 
-		let changes=await this.qql.runQuery(s,[],"changes");
+		let params=[...setParams,...w.params];
+		let changes=await this.qql.runQuery(s,params,"changes");
 		if (this.singleton && !changes) {
 			this.performQueryInsertInto(env,{
 				set: {...query.where, ...query.set}
@@ -341,12 +359,13 @@ export default class Table {
 				affectedRow=affectedRows[0];
 		}
 
+		let w=this.createWhereClause(env,query.where);
 		let s=
 			"DELETE FROM "+
 			this.qql.escapeId(this.getTable().name)+" "+
-			this.createWhereClause(env,query.where);
+			w.sql;
 
-		let changes=await this.qql.runQuery(s,[],"changes");
+		let changes=await this.qql.runQuery(s,w.params,"changes");
 
 		if (!query.return)
 			query.return="changes";
@@ -376,13 +395,15 @@ export default class Table {
 			let field=this.fields[k];
 			fieldNames.push(this.qql.escapeId(field.name));
 			let representation=field.represent(query.set[k]);
-			values.push(this.qql.escapeValue(representation));
+			//values.push(this.qql.escapeValue(representation));
+			values.push(representation);
 		}
 
 		if (this.isView()) {
 			for (let k in this.where) {
 				fieldNames.push(this.qql.escapeId(k));
-				values.push(this.qql.escapeValue(env.substituteVars(this.where[k])));
+				//values.push(this.qql.escapeValue(env.substituteVars(this.where[k])));
+				values.push(env.substituteVars(this.where[k]));
 			}
 		}
 
@@ -390,9 +411,10 @@ export default class Table {
 			"INSERT INTO "+
 			this.qql.escapeId(this.getTable().name)+" ("+
 			fieldNames.join(",")+") VALUES ("+
-			values.join(",")+")";
+			new Array(values.length).fill("?").join(",")+
+			")";
 
-		let id=await this.qql.runQuery(s,[],"id");
+		let id=await this.qql.runQuery(s,values,"id");
 		if (!query.return)
 			query.return="id";
 
@@ -430,12 +452,13 @@ export default class Table {
 		if (this.singleton)
 			return 1;
 
+		let w=this.createWhereClause(env,query.where);
 		let s=
 			"SELECT COUNT(*) AS count FROM "+
 			this.qql.escapeId(this.getTable().name)+` `+
-			this.createWhereClause(env,query.where);
+			w.sql;
 
-		let rows=await this.qql.runQuery(s,[],"rows");
+		let rows=await this.qql.runQuery(s,w.params,"rows");
 		return rows[0].count;
 	}
 
@@ -454,11 +477,14 @@ export default class Table {
 			if (!this.fields[col])
 				throw new Error("No such column: "+col);
 
+		let w=this.createWhereClause(env,query.where);
+		//console.log(w);
 		let s=
 			"SELECT "+select.map(this.qql.escapeId).join(",")+
 			" FROM "+
 			this.qql.escapeId(this.getTable().name)+` `+
-			this.createWhereClause(env,query.where);
+			w.sql;
+//			this.createWhereClause(env,query.where);
 
 		let sort=canonicalizeSort(query.sort);
 		if (Object.keys(sort).length) {
@@ -477,7 +503,7 @@ export default class Table {
 		}
 
 		//console.log(s);
-		let rows=await this.qql.runQuery(s,[],"rows");
+		let rows=await this.qql.runQuery(s,w.params,"rows");
 		rows=rows.map(row=>{
 			for (let fieldName in this.fields) {
 				let field=this.fields[fieldName];

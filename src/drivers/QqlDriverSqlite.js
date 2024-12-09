@@ -23,7 +23,7 @@ export default class QqlDriverSqlite {
 	}
 
 	query(query, params, returnType) {
-		//console.log("q: ",query);
+		//console.log("q: ",query,params);
 
 		return new Promise((resolve, reject)=>{
 			function cb(err, rows) {
