@@ -94,7 +94,7 @@ export default class Qql extends CallableClass {
 		if (!log)
 			log=console.log;
 
-		log("Migrating schema...");
+		//log("Migrating schema...");
 
 		let analysis=await this.analyze();
 
@@ -120,6 +120,7 @@ export default class Qql extends CallableClass {
 	}
 
 	envQuery=async (env, query)=>{
+		//console.log("q: ",query);
 		if (query.oneFrom) {
 			let {oneFrom, ...q}=query;
 			let rows=await this.envQuery(env,{
