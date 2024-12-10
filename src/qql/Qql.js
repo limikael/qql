@@ -6,6 +6,9 @@ import QqlEnv from "./QqlEnv.js";
 
 export default class Qql extends CallableClass {
 	constructor(...args) {
+		//console.log("************ QQL CONSTRUCTOR");
+		//console.log(driver);
+
 		let {driver, tables}=objectifyArgs(args,["driver"]);
 
 		super((q,r)=>this.query(q,r));

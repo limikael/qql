@@ -64,7 +64,7 @@ export default class QqlDriverSqlJs {
 
 			case "none":
 			case undefined:
-				this.sqlite.run(query);
+				this.sqlite.run(query,params);
 				break;
 
 			default:
