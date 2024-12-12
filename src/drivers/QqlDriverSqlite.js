@@ -14,7 +14,7 @@ export default class QqlDriverSqlite {
 	}
 
 	async queries(queries, returnType) {
-		console.log("qs: ",queries);
+		//console.log("qs: ",queries);
 
 		let res=[];
 
@@ -25,7 +25,7 @@ export default class QqlDriverSqlite {
 	}
 
 	query(query, params, returnType) {
-		console.log("q: ",query,params);
+		//console.log("q: ",query,params);
 
 		return new Promise((resolve, reject)=>{
 			function cb(err, rows) {
