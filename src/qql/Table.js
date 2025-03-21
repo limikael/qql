@@ -199,6 +199,11 @@ export default class Table {
 				params: []
 			};
 
+		/*console.log({
+			sql: "WHERE "+whereParts.join(" AND"),
+			params: whereParams
+		});*/
+
 		return {
 			sql: "WHERE "+whereParts.join(" AND"),
 			params: whereParams

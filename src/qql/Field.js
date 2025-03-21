@@ -75,42 +75,53 @@ export default class Field {
 		if (!op)
 			op="=";
 
-		if (op=="=" && Array.isArray(value))
+		if (value===undefined)
+			throw new Error("Undefined in where expression");
+
+		if (op=="=" && Array.isArray(value)) {
 			return {
 				sql: this.qql.escapeId(this.name)+" IN ("+qfill(value.length)+")",
 				params: value
 			};
-
-			/*this.qql.escapeId(this.name)+" IN ("+
-				value.map(v=>this.qql.escapeValue(v)).join(",")+")"
-			);*/
+		}
 
 		else {
 			switch (op) {
 				case "~":
+					if (value===null)
+						throw new Error("Illegal comparision with null value");
+
 					return {
 						sql: "UPPER("+this.qql.escapeId(this.name)+") LIKE ?",
 						params: ["%"+String(value).toUpperCase()+"%"]
 					}
-					/*let s=
-						"UPPER("+this.qql.escapeId(this.name)+") LIKE "+
-						this.qql.escapeValue("%"+String(value).toUpperCase()+"%")
-
-					return s;*/
 					break;
 
 				case "=":
-				case ">":
-				case "<":
-				case ">=":
-				case "<=":
+					if (value===null) {
+						return {
+							sql: this.qql.escapeId(this.name)+"is null",
+							params: []
+						}
+					}
+
 					return {
 						sql: this.qql.escapeId(this.name)+op+"?",
 						params: [value]
 					}
-					/*return (
-						this.qql.escapeId(this.name)+op+this.qql.escapeValue(value)
-					);*/
+					break;
+
+				case ">":
+				case "<":
+				case ">=":
+				case "<=":
+					if (value===null)
+						throw new Error("Illegal comparision with null value");
+
+					return {
+						sql: this.qql.escapeId(this.name)+op+"?",
+						params: [value]
+					}
 					break;
 
 				default:

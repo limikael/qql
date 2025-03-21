@@ -45,4 +45,35 @@ describe("qql",()=>{
 
 		//console.log(await qql({manyFrom: "users"}));
 	});
+
+	it("works with null values",async()=>{
+		let qql=createQql({
+			driver: new QqlDriverSqlite(new sqlite3.Database(':memory:')),
+			//driver: new QqlDriverSqlite(new sqlite3.Database('hello.db')),
+			tables: {
+				vals: {
+					fields: {
+						id: {type: "integer", pk: true, notnull: true},
+						sometext: {type: "text"},
+						somenum: {type: "integer"},
+						val: {type: "text"}
+					}
+				}
+			}
+		});
+
+		await qql.migrate({log: ()=>{}});
+
+		await qql({upsert: "vals", where: {sometext: "hello", somenum: null}, set: {val: "helloval"}});
+		await qql({upsert: "vals", where: {sometext: "hello", somenum: null}, set: {val: "helloval2"}});
+
+		//console.log(await qql({manyFrom: "vals", where: {somenum: null}}));
+		expect((await qql({manyFrom: "vals"})).length).toEqual(1);
+
+		//await qql({upsert: "vals", where: {sometext: "hello", somenum: 1}, set: {val: "helloval"}});
+		//await qql({upsert: "vals", where: {sometext: "hello", somenum: null}, set: {val: "helloval"}});
+
+		/*await qql({upsert: "vals", where: {sometext: "hello", somenum: null}, set: {val: "helloval"}});
+		await qql({upsert: "vals", where: {sometext: "hello", somenum: null}, set: {val: "helloval2"}});*/
+	})
 })
