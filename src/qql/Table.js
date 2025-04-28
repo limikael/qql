@@ -68,7 +68,8 @@ export default class Table {
 					this.fields[fieldName]=fields[fieldName];
 				}
 
-				else if (fields[fieldName].type=="reference") {
+				else if (fields[fieldName].type=="reference" ||
+						fields[fieldName].reference) {
 					this.fields[fieldName]=fields[fieldName];
 				}
 
@@ -86,10 +87,14 @@ export default class Table {
 		}
 	}
 
+	getFieldByName(fieldName) {
+		return this.fields[fieldName];
+	}
+
 	createReferences() {
 		for (let fieldName in this.fields) {
 			let fieldSpec=this.fields[fieldName];
-			if (fieldSpec.type=="reference") {
+			if (fieldSpec.type=="reference" || fieldSpec.reference) {
 				//console.log("******* creating reference");
 				let referenceTable=this.qql.tables[fieldSpec.reference];
 				if (!referenceTable)
