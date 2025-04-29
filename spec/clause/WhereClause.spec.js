@@ -1,11 +1,13 @@
 import WhereClause, {canonicalizeCondition} from "../../src/clause/WhereClause.js";
 import QqlDriverBase from "../../src/drivers/QqlDriverBase.js";
+import QqlDriverSqlite from "../../src/drivers/QqlDriverSqlite.js";
 import Qql from "../../src/qql/Qql.js";
+import sqlite3 from "sqlite3";
 
 describe("where clause",()=>{
-	function createAgentsAndResourcesQql() {
+	async function createAgentsAndResourcesQql() {
 		let qql=new Qql({
-			driver: new QqlDriverBase({escapeFlavor: "sqlite"}),
+			driver: new QqlDriverSqlite(new sqlite3.Database(':memory:')),
 			tables: {
 				users: {
 					fields: {
@@ -30,6 +32,8 @@ describe("where clause",()=>{
 				}
 			}
 		});
+
+		await qql.migrate({log: ()=>{}});
 
 		return qql;
 	}
@@ -84,8 +88,8 @@ describe("where clause",()=>{
 		//console.log(w.getValues());
 	});
 
-	it("can process a condition with ref",()=>{
-		let qql=createAgentsAndResourcesQql();
+	it("can process a condition with ref",async ()=>{
+		let qql=await createAgentsAndResourcesQql();
 
 		let w=new WhereClause({
 			qql: qql,
@@ -117,8 +121,8 @@ describe("where clause",()=>{
 		expect(w.getValues()).toEqual([ 123, 'sub', 'admin', 'user', 1 ]);
 	});
 
-	it("can process a condition with and",()=>{
-		let qql=createAgentsAndResourcesQql();
+	it("can process a condition with and",async ()=>{
+		let qql=await createAgentsAndResourcesQql();
 
 		let w=new WhereClause({
 			qql: qql,
@@ -142,8 +146,8 @@ describe("where clause",()=>{
 		expect(w.getWhereClause()).toEqual("WHERE (`user_id`=? OR `user_id`=?)");
 	});
 
-	it("can process a condition with logical op and join",()=>{
-		let qql=createAgentsAndResourcesQql();
+	it("can process a condition with logical op and join",async ()=>{
+		let qql=await createAgentsAndResourcesQql();
 
 		let w=new WhereClause({
 			qql: qql,
@@ -178,8 +182,8 @@ describe("where clause",()=>{
 		expect(w.getWhereClause()).toEqual("WHERE `_j1`.`user_id`=? AND (`_j3`.`role`=? OR `_j5`.`role`=?)");
 	});
 
-	it("can check if a record matches",()=>{
-		let qql=createAgentsAndResourcesQql();
+	it("can check if a record matches",async ()=>{
+		let qql=await createAgentsAndResourcesQql();
 
 		let w=new WhereClause({
 			qql: qql, 
@@ -189,13 +193,13 @@ describe("where clause",()=>{
 			}
 		});
 
-		expect(w.match({id: 1})).toEqual(true);
-		expect(w.match({id: 2})).toEqual(false);
-		expect(w.match({})).toEqual(false);
+		expect(await w.match({id: 1})).toEqual(true);
+		expect(await w.match({id: 2})).toEqual(false);
+		expect(await w.match({})).toEqual(false);
 	});
 
-	it("can check if a record matches with logical condition",()=>{
-		let qql=createAgentsAndResourcesQql();
+	it("can check if a record matches with logical condition",async ()=>{
+		let qql=await createAgentsAndResourcesQql();
 
 		let w=new WhereClause({
 			qql: qql, 
@@ -205,10 +209,10 @@ describe("where clause",()=>{
 			}
 		});
 
-		expect(w.match({id: 1})).toEqual(true);
-		expect(w.match({id: 2})).toEqual(true);
-		expect(w.match({id: 3})).toEqual(false);
-		expect(w.match({})).toEqual(false);
+		expect(await w.match({id: 1})).toEqual(true);
+		expect(await w.match({id: 2})).toEqual(true);
+		expect(await w.match({id: 3})).toEqual(false);
+		expect(await w.match({})).toEqual(false);
 
 		let w2=new WhereClause({
 			qql: qql, 
@@ -218,8 +222,41 @@ describe("where clause",()=>{
 			}
 		});
 
-		expect(w2.match({id: 0})).toEqual(false);
-		expect(w2.match({id: 5})).toEqual(true);
-		expect(w2.match({id: 11})).toEqual(false);
+		expect(await w2.match({id: 0})).toEqual(false);
+		expect(await w2.match({id: 5})).toEqual(true);
+		expect(await w2.match({id: 11})).toEqual(false);
+	});
+
+	it("can check if a record matches with reference",async ()=>{
+		let qql=await createAgentsAndResourcesQql();
+
+		let w=new WhereClause({
+			qql: qql, 
+			tableName: "resources",
+			where: {
+				agent_id: {$ref: {
+					$or: [{tier: "sub"},{tier: "main"}]
+				}}
+			}
+		});
+
+		let agentId1=await qql({insertInto: "agents", set: {
+			tier: "sub"
+		}});
+
+		let agentId2=await qql({insertInto: "agents", set: {
+			tier: "main"
+		}});
+
+		let agentId3=await qql({insertInto: "agents", set: {
+			tier: "something"
+		}});
+
+		//console.log(await w.match({agent_id: agentId}));
+		expect(await w.match({agent_id: agentId1})).toEqual(true);
+		expect(await w.match({agent_id: agentId2})).toEqual(true);
+		expect(await w.match({agent_id: agentId3})).toEqual(false);
+
+		//expect(w.match({agent_id: 1}));
 	});
 });

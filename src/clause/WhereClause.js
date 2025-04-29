@@ -195,8 +195,31 @@ export default class WhereClause {
 		return clause;
 	}
 
-	matchFieldCondition(record, fieldName, op, val) {
+	async matchFieldRefCondition(record, fieldName, whereCond) {
+		let field=this.qql.getTableByName(this.tableName).getFieldByName(fieldName);
+		let refTable=this.qql.getTableByName(field.reference);
+		let refPkFieldName=refTable.getPrimaryKeyField().name;
+
+		let refRecord=await this.qql({
+			oneFrom: refTable.name,
+			where: {[refPkFieldName]: record[fieldName]}
+		});
+
+		let refWhere=new WhereClause({
+			tableName: refTable.name,
+			where: whereCond,
+			qql: this.qql
+		});
+
+		return await refWhere.match(refRecord);
+	}
+
+	async matchFieldCondition(record, fieldName, op, val) {
 		switch (op) {
+			case "$ref":
+				return await this.matchFieldRefCondition(record, fieldName, val);
+				break;
+
 			case "$eq":
 				return record[fieldName]===val;
 				break;
@@ -226,16 +249,16 @@ export default class WhereClause {
 		}
 	}
 
-	matchFieldConditions(record, fieldName, conds) {
+	async matchFieldConditions(record, fieldName, conds) {
 		for (let k in conds) {
-			if (!this.matchFieldCondition(record, fieldName, k, conds[k]))
+			if (!await this.matchFieldCondition(record, fieldName, k, conds[k]))
 				return false;
 		}
 
 		return true;
 	}
 
-	matchLogical(record, op, whereConds) {
+	async matchLogical(record, op, whereConds) {
 		let subResults=[];
 
 		for (let whereCond of whereConds) {
@@ -247,7 +270,7 @@ export default class WhereClause {
 				//idGenerator: this.idGenerator
 			});
 
-			subResults.push(subWhere.match(record));
+			subResults.push(await subWhere.match(record));
 		}
 
 		if (!subResults.length)
@@ -272,15 +295,18 @@ export default class WhereClause {
 		}
 	}
 
-	match(record) {
+	async match(record) {
+		if (!record)
+			return false;
+
 		for (let k in this.where) {
 			if (["$or","$and"].includes(k)) {
-				if (!this.matchLogical(record,k,this.where[k]))
+				if (!await this.matchLogical(record,k,this.where[k]))
 					return false;
 			}
 
 			else {
-				if (!this.matchFieldConditions(record,k,this.where[k]))
+				if (!await this.matchFieldConditions(record,k,this.where[k]))
 					return false;
 			}
 		}
