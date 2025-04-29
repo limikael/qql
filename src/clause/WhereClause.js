@@ -27,6 +27,9 @@ export function canonicalizeCondition(where) {
         let op=m[2];
         let val=where[k];
 
+        if (val===undefined)
+        	throw new Error("where cond cannot be undefined");
+
         if (!retWhere.hasOwnProperty(name))
             retWhere[name]={};
 
