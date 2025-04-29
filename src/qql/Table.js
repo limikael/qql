@@ -282,7 +282,8 @@ export default class Table {
 		let s=
 			"UPDATE "+
 			this.qql.escapeId(this.getTable().name)+" "+
-			"SET "+setParts.join(",")+" "+
+			w.getJoinClause()+
+			" SET "+setParts.join(",")+" "+
 			w.getWhereClause();
 
 		let params=[...setParams,...w.getValues()];
@@ -340,6 +341,7 @@ export default class Table {
 		let s=
 			"DELETE FROM "+
 			this.qql.escapeId(this.getTable().name)+" "+
+			w.getJoinClause()+" "+
 			w.getWhereClause();
 
 		let changes=await this.qql.runQuery(s,w.getValues(),"changes");
@@ -433,6 +435,7 @@ export default class Table {
 		let s=
 			"SELECT COUNT(*) AS count FROM "+
 			this.qql.escapeId(this.getTable().name)+` `+
+			w.getJoinClause()+" "+
 			w.getWhereClause();
 
 		let rows=await this.qql.runQuery(s,w.getValues(),"rows");
@@ -459,6 +462,7 @@ export default class Table {
 			"SELECT "+select.map(this.qql.escapeId).join(",")+
 			" FROM "+
 			this.qql.escapeId(this.getTable().name)+` `+
+			w.getJoinClause()+" "+
 			w.getWhereClause();
 
 		let sort=canonicalizeSort(query.sort);
