@@ -3,6 +3,37 @@ import QqlDriverBase from "../../src/drivers/QqlDriverBase.js";
 import Qql from "../../src/qql/Qql.js";
 
 describe("where clause",()=>{
+	function createAgentsAndResourcesQql() {
+		let qql=new Qql({
+			driver: new QqlDriverBase({escapeFlavor: "sqlite"}),
+			tables: {
+				users: {
+					fields: {
+						id: {type: "integer", pk: true},
+						role: {type: "text"}
+					}
+				},
+				agents: {
+					fields: {
+						id: {type: "integer", pk: true},
+						user_id: {reference: "users"},
+						tier: {type: "text"},
+					}
+				},
+				resources: {
+					fields: {
+						id: {type: "integer", pk: true},
+						agent_id: {reference: "agents"},
+						subagent_id: {reference: "agents"},
+						user_id: {reference: "users"}
+					}
+				}
+			}
+		});
+
+		return qql;
+	}
+
 	it("can canonicalize a condition",()=>{
 		let o1=canonicalizeCondition({a: 123});
 		//console.log(o1);
@@ -54,32 +85,7 @@ describe("where clause",()=>{
 	});
 
 	it("can process a condition with ref",()=>{
-		let qql=new Qql({
-			driver: new QqlDriverBase({escapeFlavor: "sqlite"}),
-			tables: {
-				users: {
-					fields: {
-						id: {type: "integer", pk: true},
-						role: {type: "text"}
-					}
-				},
-				agents: {
-					fields: {
-						id: {type: "integer", pk: true},
-						user_id: {reference: "users"},
-						tier: {type: "text"},
-					}
-				},
-				resources: {
-					fields: {
-						id: {type: "integer", pk: true},
-						agent_id: {reference: "agents"},
-						subagent_id: {reference: "agents"},
-						user_id: {reference: "users"}
-					}
-				}
-			}
-		});
+		let qql=createAgentsAndResourcesQql();
 
 		let w=new WhereClause({
 			qql: qql,
@@ -105,46 +111,19 @@ describe("where clause",()=>{
 		//console.log(w.getWhereClause());
 		//console.log(w.getValues());
 
-		expect(w.getJoinClause()).toEqual("LEFT JOIN `agents` AS _j1 ON `resources`.`agent_id`=_j1.`id` LEFT JOIN `agents` AS _j2 ON `resources`.`subagent_id`=_j2.`id` LEFT JOIN `users` AS _j3 ON `_j2`.`user_id`=_j3.`id` LEFT JOIN `users` AS _j4 ON `resources`.`user_id`=_j4.`id`");
+		//expect(w.getJoinClause()).toEqual("LEFT JOIN `agents` AS _j1 ON `resources`.`agent_id`=_j1.`id` LEFT JOIN `agents` AS _j2 ON `resources`.`subagent_id`=_j2.`id` LEFT JOIN `users` AS _j3 ON `_j2`.`user_id`=_j3.`id` LEFT JOIN `users` AS _j4 ON `resources`.`user_id`=_j4.`id`");
+		expect(w.getJoinClause()).toEqual("LEFT JOIN `agents` AS `_j1` ON `resources`.`agent_id`=`_j1`.`id` LEFT JOIN `agents` AS `_j2` ON `resources`.`subagent_id`=`_j2`.`id` LEFT JOIN `users` AS `_j3` ON `_j2`.`user_id`=`_j3`.`id` LEFT JOIN `users` AS `_j4` ON `resources`.`user_id`=`_j4`.`id`");
 		expect(w.getWhereClause()).toEqual("WHERE `_j1`.`user_id`=? AND `_j2`.`tier`=? AND `_j3`.`role`=? AND `_j4`.`role`=? AND `id`=?");
 		expect(w.getValues()).toEqual([ 123, 'sub', 'admin', 'user', 1 ]);
 	});
 
 	it("can process a condition with and",()=>{
-		let qql=new Qql({
-			driver: new QqlDriverBase({escapeFlavor: "sqlite"}),
-			tables: {
-				users: {
-					fields: {
-						id: {type: "integer", pk: true},
-						role: {type: "text"}
-					}
-				},
-				agents: {
-					fields: {
-						id: {type: "integer", pk: true},
-						user_id: {reference: "users"},
-						tier: {type: "text"},
-					}
-				},
-				resources: {
-					fields: {
-						id: {type: "integer", pk: true},
-						agent_id: {reference: "agents"},
-						subagent_id: {reference: "agents"},
-						user_id: {reference: "users"}
-					}
-				}
-			}
-		});
+		let qql=createAgentsAndResourcesQql();
 
 		let w=new WhereClause({
 			qql: qql,
 			tableName: "resources",
 			where: {
-				agent_id: {$ref: {
-					user_id: 123,
-				}},
 				$or: [
 					{
 						user_id: 1
@@ -156,8 +135,91 @@ describe("where clause",()=>{
 			}
 		});
 
-		console.log(w.getJoins());
-		console.log(w.getWhereClause());
-		console.log(w.getValues());
+		//console.log(w.getJoins());
+		//console.log(w.getWhereClause());
+		//console.log(w.getValues());
+
+		expect(w.getWhereClause()).toEqual("WHERE (`user_id`=? OR `user_id`=?)");
+	});
+
+	it("can process a condition with logical op and join",()=>{
+		let qql=createAgentsAndResourcesQql();
+
+		let w=new WhereClause({
+			qql: qql,
+			tableName: "resources",
+			where: {
+				agent_id: {$ref: {
+					user_id: 123,
+				}},
+				$or: [
+					{
+						agent_id: {$ref: {
+							user_id: {$ref: {
+								role: "user"
+							}},
+						}},
+					},
+					{
+						agent_id: {$ref: {
+							user_id: {$ref: {
+								role: "admin"
+							}},
+						}},
+					}
+				]
+			}
+		});
+
+		//console.log(w.getJoins());
+		//console.log(w.getWhereClause());
+		//console.log(w.getValues());
+
+		expect(w.getWhereClause()).toEqual("WHERE `_j1`.`user_id`=? AND (`_j3`.`role`=? OR `_j5`.`role`=?)");
+	});
+
+	it("can check if a record matches",()=>{
+		let qql=createAgentsAndResourcesQql();
+
+		let w=new WhereClause({
+			qql: qql, 
+			tableName: "resources",
+			where: {
+				id: 1
+			}
+		});
+
+		expect(w.match({id: 1})).toEqual(true);
+		expect(w.match({id: 2})).toEqual(false);
+		expect(w.match({})).toEqual(false);
+	});
+
+	it("can check if a record matches with logical condition",()=>{
+		let qql=createAgentsAndResourcesQql();
+
+		let w=new WhereClause({
+			qql: qql, 
+			tableName: "resources",
+			where: {
+				$or: [{id: 1},{id: 2}]
+			}
+		});
+
+		expect(w.match({id: 1})).toEqual(true);
+		expect(w.match({id: 2})).toEqual(true);
+		expect(w.match({id: 3})).toEqual(false);
+		expect(w.match({})).toEqual(false);
+
+		let w2=new WhereClause({
+			qql: qql, 
+			tableName: "resources",
+			where: {
+				$and: [{"id>": 1},{"id<": 10}]
+			}
+		});
+
+		expect(w2.match({id: 0})).toEqual(false);
+		expect(w2.match({id: 5})).toEqual(true);
+		expect(w2.match({id: 11})).toEqual(false);
 	});
 });

@@ -1,3 +1,5 @@
+import IdGenerator from "../utils/IdGenerator.js";
+
 const operatorsMap = {
     $eq: '=', $ne: '!=', $gt: '>', $gte: '>=', $lt: '<', $lte: '<=',
     $like: 'LIKE', $notLike: 'NOT LIKE', $in: 'IN', $nin: 'NOT IN', $is: 'IS'
@@ -8,8 +10,6 @@ const reverseOperatorsMap={
     ">": "$gt", ">=": "$gte",
     "<": "$lt", "<=": "$lte"
 };
-
-TODO !!! pick alias from an obj...
 
 export function canonicalizeCondition(where) {
 	if (typeof where!="object")
@@ -59,17 +59,17 @@ export function canonicalizeCondition(where) {
 }
 
 export default class WhereClause {
-	constructor({where, tableName, qql, joinCount, alias}) {
+	constructor({where, tableName, qql, idGenerator, alias}) {
 		this.qql=qql;
 		this.where=canonicalizeCondition(where);
 		this.tableName=tableName;
-		this.joinCount=joinCount;
+		this.idGenerator=idGenerator;
 		this.alias=alias;
 
 		this.table=this.qql.getTableByName(this.tableName);
 
-		if (!this.joinCount)
-			this.joinCount=1;
+		if (!this.idGenerator)
+			this.idGenerator=new IdGenerator();
 
 		this.process();
 	}
@@ -95,23 +95,19 @@ export default class WhereClause {
 			if (!refTable)
 				throw new Error("Field "+fieldName+" of table "+this.tableName+" is not a reference");
 
-			let joinCount=this.joinCount;
-			this.joinCount++;
-
+			let refAlias="_j"+this.idGenerator.pick();
 			let refWhere=new WhereClause({
 				where: val,
 				tableName: field.reference,
-				alias: "_j"+joinCount,
+				alias: refAlias,
 				qql: this.qql,
-				joinCount: this.joinCount
+				idGenerator: this.idGenerator
 			});
 
-			this.joinCount+=refWhere.joins.length;
-
 			this.joins.push(
-				"LEFT JOIN "+this.escapeId(refTable.name)+" AS _j"+joinCount+
+				"LEFT JOIN "+this.escapeId(refTable.name)+" AS "+this.escapeId(refAlias)+
 				" ON "+this.escapeId(this.getAliasedName())+"."+this.escapeId(field.name)+
-				"=_j"+joinCount+"."+this.escapeId(refTable.getPrimaryKeyField().name)
+				"="+this.escapeId(refAlias)+"."+this.escapeId(refTable.getPrimaryKeyField().name)
 			);
 
 			this.clauses.push(...refWhere.clauses);
@@ -154,7 +150,7 @@ export default class WhereClause {
 				tableName: this.tableName,
 				alias: this.alias,
 				qql: this.qql,
-				joinCount: this.joinCount
+				idGenerator: this.idGenerator
 			});
 
 			subClauses.push(subWhere.clauses.join(" AND "));
@@ -197,5 +193,98 @@ export default class WhereClause {
 			clause="WHERE "+this.clauses.join(" AND ");
 
 		return clause;
+	}
+
+	matchFieldCondition(record, fieldName, op, val) {
+		switch (op) {
+			case "$eq":
+				return record[fieldName]===val;
+				break;
+
+			case "$ne":
+				return record[fieldName]!=val;
+				break;
+
+			case "$gt":
+				return record[fieldName]>val;
+				break;
+
+			case "$gte":
+				return record[fieldName]>=val;
+				break;
+
+			case "$lt":
+				return record[fieldName]<val;
+				break;
+
+			case "$lte":
+				return record[fieldName]<=val;
+				break;
+
+			default:
+				throw new Error("Unknown op: "+op);
+		}
+	}
+
+	matchFieldConditions(record, fieldName, conds) {
+		for (let k in conds) {
+			if (!this.matchFieldCondition(record, fieldName, k, conds[k]))
+				return false;
+		}
+
+		return true;
+	}
+
+	matchLogical(record, op, whereConds) {
+		let subResults=[];
+
+		for (let whereCond of whereConds) {
+			let subWhere=new WhereClause({
+				where: whereCond,
+				tableName: this.tableName,
+				alias: this.alias,
+				qql: this.qql,
+				//idGenerator: this.idGenerator
+			});
+
+			subResults.push(subWhere.match(record));
+		}
+
+		if (!subResults.length)
+			throw new Error("No expressions in logical clause");
+
+		let numTrue=0;
+		for (let subResult of subResults)
+			if (subResult)
+				numTrue++;
+
+		switch (op) {
+			case "$or":
+				return (numTrue>0);
+				break;
+
+			case "$and":
+				return (numTrue==whereConds.length);
+				break;
+
+			default:
+				throw new Error("op?");
+		}
+	}
+
+	match(record) {
+		for (let k in this.where) {
+			if (["$or","$and"].includes(k)) {
+				if (!this.matchLogical(record,k,this.where[k]))
+					return false;
+			}
+
+			else {
+				if (!this.matchFieldConditions(record,k,this.where[k]))
+					return false;
+			}
+		}
+
+		return true;
 	}
 }
