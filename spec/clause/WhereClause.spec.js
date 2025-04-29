@@ -5,6 +5,33 @@ import Qql from "../../src/qql/Qql.js";
 import sqlite3 from "sqlite3";
 
 describe("where clause",()=>{
+	it("can canonicalize a condition",()=>{
+		let o1=canonicalizeCondition({a: 123});
+		//console.log(o1);
+		expect(o1).toEqual({a: {$eq: 123}});
+
+		let o2=canonicalizeCondition({a: {$gt: 123, $lt: 124}});
+		//console.log(o2);
+		expect(o2).toEqual({ a: { '$gt': 123, '$lt': 124 } });
+
+		let o3=canonicalizeCondition({"a>": 123, "a": 124});
+		//console.log(o3);
+		expect(o3).toEqual({ a: { '$gt': 123, '$eq': 124 } });
+
+		expect(()=>{
+			let o4=canonicalizeCondition({"a>": {$gt: 123}});
+			//console.log(o4);
+		}).toThrow();
+
+		let o5=canonicalizeCondition({a: 123, $and: [{a: 1},{b:{$eq: 2}}]});
+		//console.log(JSON.stringify(o5));
+		expect(JSON.stringify(o5)).toEqual('{"a":{"$eq":123},"$and":[{"a":{"$eq":1}},{"b":{"$eq":2}}]}');
+
+		let o6=canonicalizeCondition({a: [1,2,3]});
+		//console.log(o6);
+		expect(o6).toEqual({ a: { '$in': [ 1, 2, 3 ] } });
+	});
+
 	async function createAgentsAndResourcesQql() {
 		let qql=new Qql({
 			driver: new QqlDriverSqlite(new sqlite3.Database(':memory:')),
@@ -38,29 +65,6 @@ describe("where clause",()=>{
 		return qql;
 	}
 
-	it("can canonicalize a condition",()=>{
-		let o1=canonicalizeCondition({a: 123});
-		//console.log(o1);
-		expect(o1).toEqual({a: {$eq: 123}});
-
-		let o2=canonicalizeCondition({a: {$gt: 123, $lt: 124}});
-		//console.log(o2);
-		expect(o2).toEqual({ a: { '$gt': 123, '$lt': 124 } });
-
-		let o3=canonicalizeCondition({"a>": 123, "a": 124});
-		//console.log(o3);
-		expect(o3).toEqual({ a: { '$gt': 123, '$eq': 124 } });
-
-		expect(()=>{
-			let o4=canonicalizeCondition({"a>": {$gt: 123}});
-			//console.log(o4);
-		}).toThrow();
-
-		let o5=canonicalizeCondition({a: 123, $and: [{a: 1},{b:{$eq: 2}}]});
-		//console.log(JSON.stringify(o5));
-		expect(JSON.stringify(o5)).toEqual('{"a":{"$eq":123},"$and":[{"a":{"$eq":1}},{"b":{"$eq":2}}]}');
-	});
-
 	it("can process a simple condition",()=>{
 		let qql=new Qql({
 			driver: new QqlDriverBase({escapeFlavor: "sqlite"}),
@@ -86,6 +90,65 @@ describe("where clause",()=>{
 
 		//console.log(w.getWhereClause());
 		//console.log(w.getValues());
+	});
+
+	it("can use substring",async ()=>{
+		let qql=new Qql({
+			driver: new QqlDriverBase({escapeFlavor: "sqlite"}),
+			tables: {
+				hellotable: {
+					fields: {
+						id: {type: "integer", pk: true},
+						name: {type: "text"},
+					}
+				}
+			}
+		});
+
+		let w=new WhereClause({
+			qql: qql,
+			tableName: "hellotable",
+			where: {"name~": "icke"}
+		});
+
+		//console.log(w.getWhereClause());
+		//console.log(w.getValues());
+
+		expect(w.getWhereClause()).toEqual("WHERE UPPER(`name`) LIKE ?");
+		expect(w.getValues()).toEqual([ '%ICKE%' ]);
+
+		expect(await w.match({name: "micke"})).toEqual(true);
+		expect(await w.match({name: "m"})).toEqual(false);
+	});
+
+	it("can use sets",async ()=>{
+		let qql=new Qql({
+			driver: new QqlDriverBase({escapeFlavor: "sqlite"}),
+			tables: {
+				hellotable: {
+					fields: {
+						id: {type: "integer", pk: true},
+						name: {type: "text"},
+					}
+				}
+			}
+		});
+
+		let w=new WhereClause({
+			qql: qql,
+			tableName: "hellotable",
+			where: {"name": ["micke","someone"]}
+		});
+
+		//console.log(w.getWhereClause());
+		//console.log(w.getValues());
+
+		expect(w.getWhereClause()).toEqual("WHERE `name` IN (?,?)");
+		expect(w.getValues()).toEqual([ 'micke', 'someone' ]);
+
+		expect(await w.match({name: "micke"})).toEqual(true);
+		expect(await w.match({name: "someone"})).toEqual(true);
+		expect(await w.match({name: "bla"})).toEqual(false);
 	});
 
 	it("can process a condition with ref",async ()=>{

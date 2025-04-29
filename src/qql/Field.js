@@ -71,7 +71,7 @@ export default class Field {
 		return eq;
 	}
 
-	createWhereExpression(value, op) {
+	/*createWhereExpression(value, op) {
 		if (!op)
 			op="=";
 
@@ -128,7 +128,7 @@ export default class Field {
 					throw new Error("Unknown op: "+op);
 			}
 		}
-	}
+	}*/
 
 	represent(data) {
 		switch (this.type) {

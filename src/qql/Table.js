@@ -2,6 +2,7 @@ import Field from "./Field.js";
 //import Reference from "./Reference.js";
 import {arrayOnlyUnique, assertAllowedKeys, arrayify, jsonClone, arrayDifference} from "../utils/js-util.js";
 import {canonicalizeJoins, canonicalizeSort} from "../lib/qql-util.js";
+import WhereClause from "../clause/WhereClause.js";
 
 export default class Table {
 	constructor({name, qql, fields, viewFrom, singleViewFrom, 
@@ -310,15 +311,19 @@ export default class Table {
 				affectedId=affectedRows[0][this.getPrimaryKeyFieldName()];
 		}
 
-		let w=this.createWhereClause(env,query.where);
+		let w=new WhereClause({
+			qql: this.qql,
+			tableName: this.getTable().name,
+			where: query.where
+		});
+
 		let s=
 			"UPDATE "+
 			this.qql.escapeId(this.getTable().name)+" "+
 			"SET "+setParts.join(",")+" "+
-			w.sql;
-//			this.createWhereClause(env,query.where);
+			w.getWhereClause();
 
-		let params=[...setParams,...w.params];
+		let params=[...setParams,...w.getValues()];
 		let changes=await this.qql.runQuery(s,params,"changes");
 		if (this.singleton && !changes) {
 			this.performQueryInsertInto(env,{
@@ -369,13 +374,18 @@ export default class Table {
 				affectedRow=affectedRows[0];
 		}
 
-		let w=this.createWhereClause(env,query.where);
+		let w=new WhereClause({
+			qql: this.qql,
+			tableName: this.getTable().name,
+			where: query.where
+		});
+
 		let s=
 			"DELETE FROM "+
 			this.qql.escapeId(this.getTable().name)+" "+
-			w.sql;
+			w.getWhereClause();
 
-		let changes=await this.qql.runQuery(s,w.params,"changes");
+		let changes=await this.qql.runQuery(s,w.getValues(),"changes");
 
 		if (!query.return)
 			query.return="changes";
@@ -462,13 +472,18 @@ export default class Table {
 		if (this.singleton)
 			return 1;
 
-		let w=this.createWhereClause(env,query.where);
+		let w=new WhereClause({
+			qql: this.qql,
+			tableName: this.getTable().name,
+			where: query.where
+		});
+
 		let s=
 			"SELECT COUNT(*) AS count FROM "+
 			this.qql.escapeId(this.getTable().name)+` `+
-			w.sql;
+			w.getWhereClause();
 
-		let rows=await this.qql.runQuery(s,w.params,"rows");
+		let rows=await this.qql.runQuery(s,w.getValues(),"rows");
 		return rows[0].count;
 	}
 
@@ -487,14 +502,17 @@ export default class Table {
 			if (!this.fields[col])
 				throw new Error("No such column: "+col);
 
-		let w=this.createWhereClause(env,query.where);
-		//console.log(w);
+		let w=new WhereClause({
+			qql: this.qql,
+			tableName: this.getTable().name,
+			where: query.where
+		});
+
 		let s=
 			"SELECT "+select.map(this.qql.escapeId).join(",")+
 			" FROM "+
 			this.qql.escapeId(this.getTable().name)+` `+
-			w.sql;
-//			this.createWhereClause(env,query.where);
+			w.getWhereClause();
 
 		let sort=canonicalizeSort(query.sort);
 		if (Object.keys(sort).length) {
@@ -513,7 +531,7 @@ export default class Table {
 		}
 
 		//console.log(s);
-		let rows=await this.qql.runQuery(s,w.params,"rows");
+		let rows=await this.qql.runQuery(s,w.getValues(),"rows");
 		rows=rows.map(row=>{
 			for (let fieldName in this.fields) {
 				let field=this.fields[fieldName];
@@ -523,9 +541,6 @@ export default class Table {
 
 			return row;
 		});
-
-		/*for (let join of canonicalizeJoins(query.join))
-			await this.handleJoin(env,rows,join);*/
 
 		for (let includeName in query.include)
 			await this.handleInclude(env,rows,includeName,query.include[includeName]);
