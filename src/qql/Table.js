@@ -188,54 +188,6 @@ export default class Table {
 		return w;
 	}
 
-	/*createWhereClause(env, where) {
-		if (!where)
-			where={};
-
-		let whereParts=[];
-		let whereParams=[];
-		for (let k in where) {
-			let m=k.match(/^(\w+)([!=<>~%^]*)$/);
-			if (!m)
-				throw new Error("Syntax error in where: "+k);
-
-			let name=m[1];
-			let op=m[2];
-
-			if (!this.fields[name])
-				throw new Error("No such field: "+name);
-
-			let w=this.fields[name].createWhereExpression(where[k],op);
-			whereParts.push(w.sql);
-			whereParams.push(...w.params);
-		}
-
-		if (this.isView()) {
-			let fields=this.getTable().fields;
-			for (let k in this.where) {
-				let w=fields[k].createWhereExpression(env.substituteVars(this.where[k]));
-				whereParts.push(w.sql);
-				whereParams.push(...w.params);
-			}
-		}
-
-		if (!whereParts.length)
-			return {
-				sql: "",
-				params: []
-			};
-
-		//console.log({
-		//	sql: "WHERE "+whereParts.join(" AND"),
-		//	params: whereParams
-		//});
-
-		return {
-			sql: "WHERE "+whereParts.join(" AND"),
-			params: whereParams
-		};
-	}*/
-
 	isCurrent(existingTable) {
 		if (Object.keys(this.fields).length
 				!=Object.keys(existingTable.fields).length)
