@@ -52,6 +52,7 @@ describe("where clause",()=>{
 				resources: {
 					fields: {
 						id: {type: "integer", pk: true},
+						name: {type: "text"},
 						agent_id: {reference: "agents"},
 						subagent_id: {reference: "agents"},
 						user_id: {reference: "users"}
@@ -321,5 +322,34 @@ describe("where clause",()=>{
 		expect(await w.match({agent_id: agentId3})).toEqual(false);
 
 		//expect(w.match({agent_id: 1}));
+	});
+
+	it("can map values",async ()=>{
+		let qql=await createAgentsAndResourcesQql();
+
+		let w=new WhereClause({
+			qql: qql, 
+			tableName: "resources",
+			where: {
+				name: "$uid",
+				agent_id: {$ref: {
+					tier: "$tier"
+				}},
+				$and: [{agent_id: "$uid"},{agent_id: "blabla"}]
+			}
+		});
+
+		let w2=w.mapValues(v=>{
+			if (v=="$uid")
+				return 1234;
+
+			if (v=="$tier")
+				return "THETIER";
+
+			return v;
+		});
+
+		//console.log(JSON.stringify(w2.where));
+		expect(JSON.stringify(w2.where)).toEqual('{"name":{"$eq":1234},"agent_id":{"$ref":{"tier":{"$eq":"THETIER"}}},"$and":[{"agent_id":{"$eq":1234}},{"agent_id":{"$eq":"blabla"}}]}');
 	});
 });

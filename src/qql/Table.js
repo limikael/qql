@@ -1,5 +1,4 @@
 import Field from "./Field.js";
-//import Reference from "./Reference.js";
 import {arrayOnlyUnique, assertAllowedKeys, arrayify, jsonClone, arrayDifference} from "../utils/js-util.js";
 import {canonicalizeJoins, canonicalizeSort} from "../lib/qql-util.js";
 import WhereClause from "../clause/WhereClause.js";
@@ -32,14 +31,20 @@ export default class Table {
 			if (this.getTable().isView())
 				throw new Error("Can't create a view from a view");
 
-			for (let k in this.where) {
+			this.viewWhereClause=new WhereClause({
+				qql: this.qql,
+				tableName: this.getTable().name,
+				where: where
+			})
+
+			/*for (let k in this.where) {
 				if (!this.getTable().fields[k])
 					throw new Error("Unknown field in where clause for view: "+k);
 
 				let field=this.getTable().fields[k];
 				if (!["text","integer","boolean","reference"].includes(field.type))
 					throw new Error("Can not use type "+field.type+" in where clause for view: "+k);
-			}
+			}*/
 
 			if (!include)
 				include=Object.keys(this.getTable().fields);
@@ -169,6 +174,21 @@ export default class Table {
 	}
 
 	createWhereClause(env, where) {
+		let w=new WhereClause({
+			qql: this.qql,
+			tableName: this.getTable().name,
+			where: where
+		});
+
+		if (this.isView()) {
+			let vw=this.viewWhereClause.mapValues(v=>env.substituteVars(v));
+			w.addWhereClause(vw);
+		}
+
+		return w;
+	}
+
+	/*createWhereClause(env, where) {
 		if (!where)
 			where={};
 
@@ -205,16 +225,16 @@ export default class Table {
 				params: []
 			};
 
-		/*console.log({
-			sql: "WHERE "+whereParts.join(" AND"),
-			params: whereParams
-		});*/
+		//console.log({
+		//	sql: "WHERE "+whereParts.join(" AND"),
+		//	params: whereParams
+		//});
 
 		return {
 			sql: "WHERE "+whereParts.join(" AND"),
 			params: whereParams
 		};
-	}
+	}*/
 
 	isCurrent(existingTable) {
 		if (Object.keys(this.fields).length
@@ -311,12 +331,7 @@ export default class Table {
 				affectedId=affectedRows[0][this.getPrimaryKeyFieldName()];
 		}
 
-		let w=new WhereClause({
-			qql: this.qql,
-			tableName: this.getTable().name,
-			where: query.where
-		});
-
+		let w=this.createWhereClause(env,query.where);
 		let s=
 			"UPDATE "+
 			this.qql.escapeId(this.getTable().name)+" "+
@@ -374,12 +389,7 @@ export default class Table {
 				affectedRow=affectedRows[0];
 		}
 
-		let w=new WhereClause({
-			qql: this.qql,
-			tableName: this.getTable().name,
-			where: query.where
-		});
-
+		let w=this.createWhereClause(env,query.where);
 		let s=
 			"DELETE FROM "+
 			this.qql.escapeId(this.getTable().name)+" "+
@@ -472,12 +482,7 @@ export default class Table {
 		if (this.singleton)
 			return 1;
 
-		let w=new WhereClause({
-			qql: this.qql,
-			tableName: this.getTable().name,
-			where: query.where
-		});
-
+		let w=this.createWhereClause(env,query.where);
 		let s=
 			"SELECT COUNT(*) AS count FROM "+
 			this.qql.escapeId(this.getTable().name)+` `+
@@ -502,12 +507,7 @@ export default class Table {
 			if (!this.fields[col])
 				throw new Error("No such column: "+col);
 
-		let w=new WhereClause({
-			qql: this.qql,
-			tableName: this.getTable().name,
-			where: query.where
-		});
-
+		let w=this.createWhereClause(env,query.where);
 		let s=
 			"SELECT "+select.map(this.qql.escapeId).join(",")+
 			" FROM "+

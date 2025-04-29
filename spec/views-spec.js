@@ -59,7 +59,11 @@ describe("qql views",()=>{
 		await qql({insertInto: "posts", set: {title: "micke post 1", user_id: uid}});
 		await qql({insertInto: "posts", set: {title: "micke post 2", user_id: uid, published: true}});
 		await qql({insertInto: "posts", set: {title: "micke2 post 1", user_id: uid2, published: true}});
+
+		expect((await qql({manyFrom: "published_posts"})).length).toEqual(2);
+
 		await qql({insertInto: "published_posts", set: {title: "micke post 4"}});
+		expect((await qql({manyFrom: "published_posts"})).length).toEqual(3);
 
 		await qql.env({uid:2,role:"admin"}).query({insertInto: "my_posts", set: {title: "hello"}});
 		let my=await qql.env({uid:2,role:"admin"}).query({manyFrom: "my_posts"});
@@ -70,7 +74,7 @@ describe("qql views",()=>{
 		//await qql({insertInto: "my_posts", set: {title: "my micke post 4"}});
 
 		//console.log(await qql({manyFrom: "posts", where: {id: 1}}));
-		expect((await qql({manyFrom: "published_posts"})).length).toEqual(3);
+		//expect((await qql({manyFrom: "published_posts"})).length).toEqual(3);
 		//console.log(await qql({manyFrom: "published_posts", select: ["published"]}));
 
 		//console.log(await qql.env({uid:1,role: "user"}).query({oneFrom: "my_profile"}));

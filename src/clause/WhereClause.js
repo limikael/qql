@@ -45,7 +45,7 @@ export function canonicalizeCondition(where) {
             retWhere[name]=val.map(w=>canonicalizeCondition(w));
         }
 
-        else if (typeof val=="object" && !Array.isArray(val)) {
+        else if (typeof val=="object" && !Array.isArray(val) && val!==null) {
         	if (op)
         		throw new Error("Operator at end of string and in object");
 
@@ -153,6 +153,10 @@ export default class WhereClause {
 
 				this.clauses.push(escapedFieldName+" IN ("+qfill(val.length)+")");
 				this.values.push(...val);
+			}
+
+			else if (op=="$eq" && val===null) {
+				this.clauses.push(escapedFieldName+" IS NULL ");
 			}
 
 			else {
@@ -354,5 +358,80 @@ export default class WhereClause {
 		}
 
 		return true;
+	}
+
+	addWhereClause(otherWhereClause) {
+		if (this.tableName!=otherWhereClause.tableName)
+			throw new Error("Adding a where clause for a different table");
+
+		if (this.qql!==otherWhereClause.qql)
+			throw new Error("Different qql");
+
+		if (!this.where.$and)
+			this.where.$and=[];
+
+		this.where.$and.push(otherWhereClause.where);
+		this.process();
+	}
+
+	async matchFieldConditions(record, fieldName, conds) {
+		for (let k in conds) {
+			if (!await this.matchFieldCondition(record, fieldName, k, conds[k]))
+				return false;
+		}
+
+		return true;
+	}
+
+	mapValuesFieldConditions(fn, conds) {
+		let mappedConds={};
+
+		for (let k in conds) {
+			if (k=="$ref") {
+				//console.log(conds[k]);
+				mappedConds[k]=this.mapValuesWhere(fn,canonicalizeCondition(conds[k]));
+			}
+
+			else {
+				mappedConds[k]=fn(conds[k]);
+			}
+		}
+
+		return mappedConds;
+	}
+
+	mapValuesLogical(fn, logical) {
+		let mappedLogical=[];
+
+		for (let where of logical)
+			mappedLogical.push(this.mapValuesWhere(fn,where));
+
+		return mappedLogical;
+	}
+
+	mapValuesWhere(fn, where) {
+		let mappedWhere={};
+
+		for (let k in where) {
+			if (["$or","$and"].includes(k)) {
+				mappedWhere[k]=this.mapValuesLogical(fn,where[k]);
+			}
+
+			else {
+				mappedWhere[k]=this.mapValuesFieldConditions(fn,where[k]);
+			}
+		}
+
+		return mappedWhere;
+	}
+
+	mapValues(fn) {
+		let mappedWhere=this.mapValuesWhere(fn,this.where);
+
+		return new WhereClause({
+			where: mappedWhere,
+			tableName: this.tableName,
+			qql: this.qql
+		});
 	}
 }
