@@ -312,11 +312,6 @@ export default class Table {
 			let field=this.fields[k];
 			setParts.push(this.qql.escapeId(k)+"=?");
 			setParams.push(field.represent(query.set[k]));
-
-			/*sets.push(
-				this.qql.escapeId(k)+"="+
-				this.qql.escapeValue(field.represent(query.set[k]))
-			);*/
 		}
 
 		let affectedId;
