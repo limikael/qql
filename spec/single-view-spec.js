@@ -22,11 +22,13 @@ describe("qql single view",()=>{
 						num: {type: "integer", default: 123},
 						othernum: {type: "integer", default: 888},
 						user_id: {type: "reference", reference: "users", /*prop: "user", / *, refprop: "authored"*/},
-					}
+					},
+					policies: [
+						{roles: "user", where:{user_id: "$uid"}}
+					]
 				},
 
 				about_me: {
-					access: "user",
 					singleViewFrom: "pages",
 					where: {
 						slug: "about",

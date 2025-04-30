@@ -12,7 +12,10 @@ describe("qql views",()=>{
 					fields: {
 						id: {type: "integer", pk: true, notnull: true},
 						name: {type: "text"},
-					}
+					},
+					policies: [
+						{roles: "user",where: {id: "$uid"}}
+					]
 				},
 
 				posts: {
@@ -43,7 +46,6 @@ describe("qql views",()=>{
 				},
 
 				my_profile: {
-					access: "user",
 					singleViewFrom: "users",
 					where: {
 						"id": "$uid"
@@ -78,5 +80,6 @@ describe("qql views",()=>{
 		//console.log(await qql({manyFrom: "published_posts", select: ["published"]}));
 
 		//console.log(await qql.env({uid:1,role: "user"}).query({oneFrom: "my_profile"}));
+		expect((await qql.env({uid:1,role: "user"}).query({oneFrom: "my_profile"})).id).toEqual(1);
 	})
 })

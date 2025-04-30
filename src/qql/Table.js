@@ -2,26 +2,22 @@ import Field from "./Field.js";
 import {arrayOnlyUnique, assertAllowedKeys, arrayify, jsonClone, arrayDifference} from "../utils/js-util.js";
 import {canonicalizeJoins, canonicalizeSort} from "../lib/qql-util.js";
 import WhereClause from "../clause/WhereClause.js";
+import Policy from "./Policy.js";
 
 export default class Table {
 	constructor({name, qql, fields, viewFrom, singleViewFrom, 
 				access, readAccess, where, include, exclude,
-				recordRepresentation}) {
+				recordRepresentation, policies}) {
 		//console.log("role when creating table: "+qql.role);
 
 		this.recordRepresentation=recordRepresentation;
 		this.name=name;
 		this.qql=qql;
 
-        if (!access && !readAccess) {
-            access="admin";
-            readAccess="public";
-        }
-
-        this.access=arrayify(access);
-        this.readAccess=[...this.access,...arrayify(readAccess)];
-
 		if (viewFrom || singleViewFrom) {
+			if (access || readAccess || policies)
+				throw new Error("views can not have security settings");
+
 			this.viewFrom=viewFrom||singleViewFrom;
 			this.where=where||{};
 
@@ -30,12 +26,6 @@ export default class Table {
 
 			if (this.getTable().isView())
 				throw new Error("Can't create a view from a view");
-
-			this.viewWhereClause=new WhereClause({
-				qql: this.qql,
-				tableName: this.getTable().name,
-				where: where
-			})
 
 			if (!include)
 				include=Object.keys(this.getTable().fields);
@@ -81,6 +71,42 @@ export default class Table {
 
 			if (Object.keys(this.fields).filter(fid=>this.fields[fid].pk).length!=1)
 				throw new Error("There must be exactly one primary key for table "+this.name);
+
+			this.policies=[];
+			if (policies) {
+				for (let policyParams of policies) {
+					this.policies.push(new Policy({
+						...policyParams,
+						tableName: this.name,
+						qql: this.qql
+					}));
+				}
+			}
+
+	        if (!access && !readAccess && !policies) {
+	            access="admin";
+	            readAccess="public";
+	        }
+
+	        access=arrayify(access);
+	        readAccess=[...access,...arrayify(readAccess)];
+
+	        if (access.length) {
+				this.policies.push(new Policy({
+					tableName: this.name,
+					qql: this.qql,
+					roles: access
+				}));
+	        }
+
+			if (readAccess.length) {
+				this.policies.push(new Policy({
+					tableName: this.name,
+					qql: this.qql,
+					roles: readAccess,
+					operations: ["read"]
+				}));
+			}
 		}
 	}
 
@@ -164,7 +190,19 @@ export default class Table {
 		return item;
 	}
 
-	createWhereClause(env, where) {
+	getViewWhereClause() {
+		if (!this.viewWhereClause) {
+			this.viewWhereClause=new WhereClause({
+				qql: this.qql,
+				tableName: this.getTable().name,
+				where: this.where
+			})
+		}
+
+		return this.viewWhereClause;
+	}
+
+	createWhereClause(env, where, policies) {
 		let w=new WhereClause({
 			qql: this.qql,
 			tableName: this.getTable().name,
@@ -172,8 +210,13 @@ export default class Table {
 		});
 
 		if (this.isView()) {
-			let vw=this.viewWhereClause.mapValues(v=>env.substituteVars(v));
-			w.addWhereClause(vw);
+			let vw=this.getViewWhereClause().mapValues(v=>env.substituteVars(v));
+			w.addAndWhereClause(vw);
+		}
+
+		for (let policy of policies) {
+			if (policy.getWhereClause())
+				w.addOrWhereClause(policy.getWhereClause().mapValues(v=>env.substituteVars(v)))
 		}
 
 		return w;
@@ -244,7 +287,7 @@ export default class Table {
 
 	async queryUpdate(env, query) {
 		assertAllowedKeys(query,["update","where","set","return"]);
-		this.assertWriteAccess(env);
+		let policies=this.getApplicablePolicies(env,"update");
 
 		let setParts=[];
 		let setParams=[];
@@ -269,7 +312,7 @@ export default class Table {
 				affectedId=affectedRows[0][this.getPrimaryKeyFieldName()];
 		}
 
-		let w=this.createWhereClause(env,query.where);
+		let w=this.createWhereClause(env,query.where,policies);
 		let s=
 			"UPDATE "+
 			this.qql.escapeId(this.getTable().name)+" "+
@@ -315,7 +358,7 @@ export default class Table {
 			throw new Error("Can't delete from a singleton view");
 
 		assertAllowedKeys(query,["deleteFrom","where","return"]);
-		this.assertWriteAccess(env);
+		let policies=this.getApplicablePolicies(env,"delete");
 
 		let affectedRow;
 		if (query.return=="item") {
@@ -328,7 +371,7 @@ export default class Table {
 				affectedRow=affectedRows[0];
 		}
 
-		let w=this.createWhereClause(env,query.where);
+		let w=this.createWhereClause(env,query.where,policies);
 		let s=
 			"DELETE FROM "+
 			this.qql.escapeId(this.getTable().name)+" "+
@@ -353,7 +396,8 @@ export default class Table {
 
 	async performQueryInsertInto(env, query) {
 		assertAllowedKeys(query,["insertInto","set","return"]);
-		this.assertWriteAccess(env);
+
+		let policies=this.getApplicablePolicies(env,"create");
 
 		let fieldNames=[];
 		let values=[];
@@ -418,11 +462,11 @@ export default class Table {
 	}
 
 	async queryCountFrom(env, query) {
-		this.assertReadAccess(env);
+		let policies=this.getApplicablePolicies(env,"read");
 		if (this.singleton)
 			return 1;
 
-		let w=this.createWhereClause(env,query.where);
+		let w=this.createWhereClause(env,query.where,policies);
 		let s=
 			"SELECT COUNT(*) AS count FROM "+
 			this.qql.escapeId(this.getTable().name)+` `+
@@ -435,7 +479,7 @@ export default class Table {
 
 	async queryManyFrom(env, query) {
 		assertAllowedKeys(query,["select","unselect","manyFrom","limit","offset","where","include","sort"]);
-		this.assertReadAccess(env);
+		let policies=this.getApplicablePolicies(env,"read");
 
 		let select=query.select;
 		if (!select)
@@ -448,7 +492,7 @@ export default class Table {
 			if (!this.fields[col])
 				throw new Error("No such column: "+col);
 
-		let w=this.createWhereClause(env,query.where);
+		let w=this.createWhereClause(env,query.where,policies);
 		let s=
 			"SELECT "+select.map(this.qql.escapeId).join(",")+
 			" FROM "+
@@ -620,7 +664,22 @@ export default class Table {
 		return 1;
 	}
 
-	assertReadAccess(env) {
+	getApplicablePolicies(env, operation) {
+		if (env.isRoot())
+			return []; //new Policy()];
+
+		let policies=[];
+		for (let policy of this.getTable().policies)
+			if (policy.match(operation,env.getRole()))
+				policies.push(policy);
+
+		if (!policies.length)
+			throw new Error(operation+" on "+this.getTable().name+" not permitted");
+
+		return policies;
+	}
+
+	/*assertReadAccess(env) {
 		if (env.isRoot())
 			return;
 
@@ -636,5 +695,5 @@ export default class Table {
 
         if (!this.access.includes(env.getRole()))
         	throw new Error("Not allowed to write to: "+this.name+" with role "+env.getRole());
-	}
+	}*/
 }

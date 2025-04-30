@@ -360,7 +360,7 @@ export default class WhereClause {
 		return true;
 	}
 
-	addWhereClause(otherWhereClause) {
+	addAndWhereClause(otherWhereClause) {
 		if (this.tableName!=otherWhereClause.tableName)
 			throw new Error("Adding a where clause for a different table");
 
@@ -371,6 +371,20 @@ export default class WhereClause {
 			this.where.$and=[];
 
 		this.where.$and.push(otherWhereClause.where);
+		this.process();
+	}
+
+	addOrWhereClause(otherWhereClause) {
+		if (this.tableName!=otherWhereClause.tableName)
+			throw new Error("Adding a where clause for a different table");
+
+		if (this.qql!==otherWhereClause.qql)
+			throw new Error("Different qql");
+
+		if (!this.where.$or)
+			this.where.$or=[];
+
+		this.where.$or.push(otherWhereClause.where);
 		this.process();
 	}
 
