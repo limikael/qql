@@ -666,7 +666,7 @@ export default class Table {
 
 	getApplicablePolicies(env, operation) {
 		if (env.isRoot())
-			return []; //new Policy()];
+			return [];
 
 		let policies=[];
 		for (let policy of this.getTable().policies)
@@ -678,22 +678,4 @@ export default class Table {
 
 		return policies;
 	}
-
-	/*assertReadAccess(env) {
-		if (env.isRoot())
-			return;
-
-		//console.log(this.readAccess);
-
-        if (!this.readAccess.includes(env.getRole()))
-        	throw new Error("Not allowed to read from: "+this.name+" with role "+env.getRole());
-	}
-
-	assertWriteAccess(env) {
-		if (env.isRoot())
-			return;
-
-        if (!this.access.includes(env.getRole()))
-        	throw new Error("Not allowed to write to: "+this.name+" with role "+env.getRole());
-	}*/
 }
