@@ -37,15 +37,6 @@ export default class Table {
 				where: where
 			})
 
-			/*for (let k in this.where) {
-				if (!this.getTable().fields[k])
-					throw new Error("Unknown field in where clause for view: "+k);
-
-				let field=this.getTable().fields[k];
-				if (!["text","integer","boolean","reference"].includes(field.type))
-					throw new Error("Can not use type "+field.type+" in where clause for view: "+k);
-			}*/
-
 			if (!include)
 				include=Object.keys(this.getTable().fields);
 
