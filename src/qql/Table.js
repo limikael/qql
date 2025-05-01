@@ -7,16 +7,15 @@ import Policy from "./Policy.js";
 export default class Table {
 	constructor({name, qql, fields, viewFrom, singleViewFrom, 
 				access, readAccess, where, include, exclude,
-				recordRepresentation, policies}) {
-		//console.log("role when creating table: "+qql.role);
+				policies}) {
+		//console.log("creating table: "+name+JSON.stringify(access)+JSON.stringify(readAccess));
 
-		this.recordRepresentation=recordRepresentation;
 		this.name=name;
 		this.qql=qql;
 
 		if (viewFrom || singleViewFrom) {
 			if (access || readAccess || policies)
-				throw new Error("views can not have security settings");
+				throw new Error("views can not have security settings, view="+name+JSON.stringify(access)+JSON.stringify(readAccess));
 
 			this.viewFrom=viewFrom||singleViewFrom;
 			this.where=where||{};

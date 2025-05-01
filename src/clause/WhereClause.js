@@ -388,15 +388,6 @@ export default class WhereClause {
 		this.process();
 	}
 
-	async matchFieldConditions(record, fieldName, conds) {
-		for (let k in conds) {
-			if (!await this.matchFieldCondition(record, fieldName, k, conds[k]))
-				return false;
-		}
-
-		return true;
-	}
-
 	mapValuesFieldConditions(fn, conds) {
 		let mappedConds={};
 
