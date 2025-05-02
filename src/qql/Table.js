@@ -82,7 +82,7 @@ export default class Table {
 				}
 			}
 
-	        if (!access && !readAccess && !policies) {
+	        if (!access && !readAccess && (this.policies.length==0)) {
 	            access="admin";
 	            readAccess="public";
 	        }
