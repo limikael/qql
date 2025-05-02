@@ -18,7 +18,7 @@ export default class Policy {
 		if (!this.roles.length)
 			throw new Error("roles required for policy");
 
-		if (!this.operations)
+		if (!this.operations || this.operations.length==0)
 			this.operations=["create","read","update","delete"];
 	}
 

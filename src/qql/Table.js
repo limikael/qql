@@ -673,7 +673,7 @@ export default class Table {
 				policies.push(policy);
 
 		if (!policies.length)
-			throw new Error(operation+" on "+this.getTable().name+" not permitted");
+			throw new Error(operation+" on "+this.getTable().name+" not permitted with role "+env.getRole());
 
 		return policies;
 	}
