@@ -213,10 +213,8 @@ export default class Table {
 			w.addAndWhereClause(vw);
 		}
 
-		for (let policy of policies) {
-			if (policy.getWhereClause())
-				w.addOrWhereClause(policy.getWhereClause().mapValues(v=>env.substituteVars(v)))
-		}
+		for (let policy of policies)
+			w.addOrWhereClause(policy.getWhereClause().mapValues(v=>env.substituteVars(v)))
 
 		return w;
 	}
@@ -492,6 +490,7 @@ export default class Table {
 				throw new Error("No such column: "+col);
 
 		let w=this.createWhereClause(env,query.where,policies);
+
 		let s=
 			"SELECT "+select.map(this.qql.escapeId).join(",")+
 			" FROM "+

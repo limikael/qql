@@ -33,9 +33,6 @@ export default class Policy {
 	}
 
 	getWhereClause() {
-		if (!this.where)
-			return;
-
 		if (!this.whereClause)
 			this.whereClause=new WhereClause({
 				qql: this.qql,
