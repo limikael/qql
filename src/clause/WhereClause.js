@@ -40,7 +40,7 @@ export function canonicalizeCondition(where) {
 
         if (name.startsWith("$")) {
         	if (!Array.isArray(val))
-        		throw new Error("Expected array");
+        		throw new Error("Expected array for logical condition");
 
             retWhere[name]=val.map(w=>canonicalizeCondition(w));
         }
@@ -176,7 +176,7 @@ export default class WhereClause {
 	}
 
 	processLogical(op, whereConds) {
-		let subClauses=[];
+		let subClauses=[], subValues=[], subJoins=[];
 		let logOps={
 			$and: "AND",
 			$or: "OR"
@@ -191,12 +191,21 @@ export default class WhereClause {
 				idGenerator: this.idGenerator
 			});
 
-			subClauses.push(subWhere.clauses.join(" AND "));
-			this.values.push(...subWhere.values);
-			this.joins.push(...subWhere.joins);
+			if (subWhere.clauses.length) {
+				subClauses.push(subWhere.clauses.join(" AND "));
+				subValues.push(...subWhere.values);
+				subJoins.push(...subWhere.joins);
+			}
+
+			else if (op=="$or")
+				return;
 		}
 
-		this.clauses.push("("+subClauses.join(" "+logOps[op]+" ")+")");
+		if (subClauses.length) {
+			this.clauses.push("("+subClauses.join(" "+logOps[op]+" ")+")");
+			this.values.push(...subValues);
+			this.joins.push(...subJoins);
+		}
 	}
 
 	process() {

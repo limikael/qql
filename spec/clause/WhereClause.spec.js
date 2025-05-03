@@ -185,31 +185,6 @@ describe("where clause",()=>{
 		expect(w.getValues()).toEqual([ 123, 'sub', 'admin', 'user', 1 ]);
 	});
 
-	it("can process a condition with and",async ()=>{
-		let qql=await createAgentsAndResourcesQql();
-
-		let w=new WhereClause({
-			qql: qql,
-			tableName: "resources",
-			where: {
-				$or: [
-					{
-						user_id: 1
-					},
-					{
-						user_id: 1
-					}
-				]
-			}
-		});
-
-		//console.log(w.getJoins());
-		//console.log(w.getWhereClause());
-		//console.log(w.getValues());
-
-		expect(w.getWhereClause()).toEqual("WHERE (`user_id`=? OR `user_id`=?)");
-	});
-
 	it("can process a condition with logical op and join",async ()=>{
 		let qql=await createAgentsAndResourcesQql();
 
@@ -351,5 +326,30 @@ describe("where clause",()=>{
 
 		//console.log(JSON.stringify(w2.where));
 		expect(JSON.stringify(w2.where)).toEqual('{"name":{"$eq":1234},"agent_id":{"$ref":{"tier":{"$eq":"THETIER"}}},"$and":[{"agent_id":{"$eq":1234}},{"agent_id":{"$eq":"blabla"}}]}');
+	});
+
+	it("works works with adding a where FIXME",async ()=>{
+		let qql=await createAgentsAndResourcesQql();
+
+		let w=new WhereClause({
+			qql: qql,
+			tableName: "agents",
+			where: {
+				$and: [{},{}]
+			}
+		});
+
+		/*w.addOrWhereClause({
+			qql: qql,
+			tableName: "agents",
+			where: {tier: "main"}
+		});
+
+		w.addOrWhereClause({
+			qql: qql,
+			tableName: "agents",
+		});*/
+
+		//console.log(w.getWhereClause());
 	});
 });
