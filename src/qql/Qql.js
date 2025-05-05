@@ -1,7 +1,7 @@
 import Table from "./Table.js";
 import mysqlSqlstring from "sqlstring";
 import QqlAnalysis from "./QqlAnalysis.js";
-import {arrayOnlyUnique, objectifyArgs, CallableClass} from "../utils/js-util.js";
+import {objectifyArgs, CallableClass} from "../utils/js-util.js";
 import QqlEnv from "./QqlEnv.js";
 
 export default class Qql extends CallableClass {

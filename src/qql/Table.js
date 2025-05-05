@@ -1,5 +1,6 @@
 import Field from "./Field.js";
-import {arrayOnlyUnique, assertAllowedKeys, arrayify, jsonClone, arrayDifference} from "../utils/js-util.js";
+import {assertAllowedKeys, arrayify, jsonClone, 
+		arrayUnique, arrayDifference, arrayIntersection} from "../utils/js-util.js";
 import {canonicalizeJoins, canonicalizeSort} from "../lib/qql-util.js";
 import WhereClause from "../clause/WhereClause.js";
 import Policy from "./Policy.js";
@@ -79,6 +80,19 @@ export default class Table {
 						tableName: this.name,
 						qql: this.qql
 					}));
+				}
+
+				let rolesSeen=[];
+				for (let policy of this.policies) {
+					if (arrayIntersection(rolesSeen,policy.roles).length) {
+						let m="Ambigous policy for role: "+
+							String(arrayIntersection(rolesSeen,policy.roles))+", "+
+							"table: "+this.name;
+
+						throw new Error(m);
+					}
+
+					rolesSeen.push(...policy.roles);
 				}
 			}
 
@@ -201,7 +215,7 @@ export default class Table {
 		return this.viewWhereClause;
 	}
 
-	createWhereClause(env, where, policies) {
+	createWhereClause(env, where, policy) {
 		let w=new WhereClause({
 			qql: this.qql,
 			tableName: this.getTable().name,
@@ -213,8 +227,10 @@ export default class Table {
 			w.addAndWhereClause(vw);
 		}
 
-		for (let policy of policies)
-			w.addOrWhereClause(policy.getWhereClause().mapValues(v=>env.substituteVars(v)))
+		if (policy) {
+			let pw=policy.getWhereClause().mapValues(v=>env.substituteVars(v));
+			w.addAndWhereClause(pw)
+		}
 
 		return w;
 	}
@@ -284,7 +300,7 @@ export default class Table {
 
 	async queryUpdate(env, query) {
 		assertAllowedKeys(query,["update","where","set","return"]);
-		let policies=this.getApplicablePolicies(env,"update");
+		let policy=this.getApplicablePolicy(env,"update");
 
 		let setParts=[];
 		let setParams=[];
@@ -309,7 +325,7 @@ export default class Table {
 				affectedId=affectedRows[0][this.getPrimaryKeyFieldName()];
 		}
 
-		let w=this.createWhereClause(env,query.where,policies);
+		let w=this.createWhereClause(env,query.where,policy);
 		let s=
 			"UPDATE "+
 			this.qql.escapeId(this.getTable().name)+" "+
@@ -355,7 +371,7 @@ export default class Table {
 			throw new Error("Can't delete from a singleton view");
 
 		assertAllowedKeys(query,["deleteFrom","where","return"]);
-		let policies=this.getApplicablePolicies(env,"delete");
+		let policy=this.getApplicablePolicy(env,"delete");
 
 		let affectedRow;
 		if (query.return=="item") {
@@ -368,7 +384,7 @@ export default class Table {
 				affectedRow=affectedRows[0];
 		}
 
-		let w=this.createWhereClause(env,query.where,policies);
+		let w=this.createWhereClause(env,query.where,policy);
 		let s=
 			"DELETE FROM "+
 			this.qql.escapeId(this.getTable().name)+" "+
@@ -394,7 +410,7 @@ export default class Table {
 	async performQueryInsertInto(env, query) {
 		assertAllowedKeys(query,["insertInto","set","return"]);
 
-		let policies=this.getApplicablePolicies(env,"create");
+		let policy=this.getApplicablePolicy(env,"create");
 
 		let fieldNames=[];
 		let values=[];
@@ -459,11 +475,11 @@ export default class Table {
 	}
 
 	async queryCountFrom(env, query) {
-		let policies=this.getApplicablePolicies(env,"read");
+		let policy=this.getApplicablePolicy(env,"read");
 		if (this.singleton)
 			return 1;
 
-		let w=this.createWhereClause(env,query.where,policies);
+		let w=this.createWhereClause(env,query.where,policy);
 		let s=
 			"SELECT COUNT(*) AS count FROM "+
 			this.qql.escapeId(this.getTable().name)+` `+
@@ -476,20 +492,29 @@ export default class Table {
 
 	async queryManyFrom(env, query) {
 		assertAllowedKeys(query,["select","unselect","manyFrom","limit","offset","where","include","sort"]);
-		let policies=this.getApplicablePolicies(env,"read");
+		let policy=this.getApplicablePolicy(env,"read");
 
 		let select=query.select;
-		if (!select)
-			select=Object.keys(this.fields);
+		if (!select) {
+			if (policy)
+				select=policy.getReadFields();
+
+			else
+				select=Object.keys(this.fields);
+		}
 
 		if (query.unselect)
 			select=arrayDifference(select,query.unselect);
+
+		if (policy && arrayDifference(select,policy.getReadFields()).length)
+			throw new Error("Not allowed to read from: "+
+				String(arrayDifference(select,policy.getReadFields())));
 
 		for (let col of select)
 			if (!this.fields[col])
 				throw new Error("No such column: "+col);
 
-		let w=this.createWhereClause(env,query.where,policies);
+		let w=this.createWhereClause(env,query.where,policy);
 
 		let s=
 			"SELECT "+select.map(this.qql.escapeId).join(",")+
@@ -571,7 +596,7 @@ export default class Table {
 				via=refTable.findReferencingField(this.name);
 
 			let thisPk=this.getPrimaryKeyField().name;
-			let keys=arrayOnlyUnique(rows.map(row=>row[thisPk]));
+			let keys=arrayUnique(rows.map(row=>row[thisPk]));
 
 			let rowByPk=Object.fromEntries(rows.map(row=>[row[thisPk],row]));
 
@@ -604,7 +629,7 @@ export default class Table {
 				via=this.findReferencingField(refTable.name);
 
 			let refPk=refTable.getPrimaryKeyField().name;
-			let keys=arrayOnlyUnique(rows.map(row=>row[via]).filter(r=>!!r));
+			let keys=arrayUnique(rows.map(row=>row[via]).filter(r=>!!r));
 
 			delete includeQuery.oneFrom;
 			delete includeQuery.via;
@@ -662,18 +687,14 @@ export default class Table {
 		return 1;
 	}
 
-	getApplicablePolicies(env, operation) {
+	getApplicablePolicy(env, operation) {
 		if (env.isRoot())
-			return [];
+			return;
 
-		let policies=[];
 		for (let policy of this.getTable().policies)
 			if (policy.match(operation,env.getRole()))
-				policies.push(policy);
+				return policy;
 
-		if (!policies.length)
-			throw new Error(operation+" on "+this.getTable().name+" not permitted with role "+env.getRole());
-
-		return policies;
+		throw new Error(operation+" on "+this.getTable().name+" not permitted with role "+env.getRole());
 	}
 }

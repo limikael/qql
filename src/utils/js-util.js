@@ -1,4 +1,4 @@
-export function arrayOnlyUnique(a) {
+export function arrayUnique(a) {
 	function onlyUnique(value, index, array) {
 		return array.indexOf(value) === index;
 	}
@@ -8,6 +8,10 @@ export function arrayOnlyUnique(a) {
 
 export function arrayDifference(a, b) {
     return a.filter(item=>!b.includes(item));   
+}
+
+export function arrayIntersection(a, b) {
+    return a.filter(value => b.includes(value));
 }
 
 export function objectifyArgs(params, fields) {
