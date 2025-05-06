@@ -50,6 +50,26 @@ export default class Policy {
 		return this.whereClause; 
 	}
 
+	assertFieldsReadable(fields) {
+		let diff=arrayDifference(fields,this.getReadFields());
+		if (diff.length)
+			throw new Error(
+				"Not allowed to read from: "+String(diff)+
+				" on table: "+this.tableName+
+				" with roles: "+String(this.roles)
+			);
+	}
+
+	assertFieldsWritable(fields) {
+		let diff=arrayDifference(fields,this.getWriteFields());
+		if (diff.length)
+			throw new Error(
+				"Not allowed to write to: "+String(diff)+
+				" on table: "+this.tableName+
+				" with roles: "+String(this.roles)
+			);
+	}
+
 	getReadFields() {
 		let table=this.qql.getTableByName(this.tableName);
 

@@ -276,6 +276,9 @@ export default class Table {
 		assertAllowedKeys(query,["update","where","set","return"]);
 		let policy=this.getApplicablePolicy(env,"update");
 
+		if (policy)
+			policy.assertFieldsWritable(Object.keys(query.set));
+
 		let setParts=[];
 		let setParams=[];
 		for (let k in query.set) {
@@ -386,6 +389,9 @@ export default class Table {
 
 		let policy=this.getApplicablePolicy(env,"create");
 
+		if (policy)
+			policy.assertFieldsWritable(Object.keys(query.set));
+
 		let fieldNames=[];
 		let values=[];
 
@@ -483,9 +489,8 @@ export default class Table {
 		if (query.unselect)
 			select=arrayDifference(select,query.unselect);
 
-		if (policy && arrayDifference(select,policy.getReadFields()).length)
-			throw new Error("Not allowed to read from: "+
-				String(arrayDifference(select,policy.getReadFields())));
+		if (policy)
+			policy.assertFieldsReadable(select);
 
 		for (let col of select)
 			if (!this.fields[col])
