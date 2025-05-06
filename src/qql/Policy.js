@@ -9,7 +9,7 @@ export default class Policy {
 
 		this.tableName=tableName;
 		this.qql=qql;
-		this.operations=operations;
+		this.operations=arrayify(operations);
 		this.roles=arrayify(roles);
 		this.where=where;
 
@@ -18,16 +18,15 @@ export default class Policy {
 		this.readonly=arrayify(readonly);
 		this.writable=arrayify(writable);
 
-		//console.log("policy roles",this.roles);
-
-		/*if (this.fields)
-			throw new Error("field policy not impl");*/
-
 		if (!this.roles.length)
 			throw new Error("roles required for policy");
 
 		if (!this.operations || this.operations.length==0)
 			this.operations=["create","read","update","delete"];
+
+		let extraOps=arrayDifference(this.operations,["create","read","update","delete"]);
+		if (extraOps.length)
+			throw new Error("Unknown policy operations: "+String(extraOps));
 	}
 
 	match(operation, role) {
@@ -44,7 +43,7 @@ export default class Policy {
 		if (!this.whereClause)
 			this.whereClause=new WhereClause({
 				qql: this.qql,
-				tableName: this.tableName,
+				tableName: this.qql.getTableByName(this.tableName).getTable().name,
 				where: this.where
 			});
 

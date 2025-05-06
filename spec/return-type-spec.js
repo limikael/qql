@@ -8,8 +8,6 @@ describe("qql return type",()=>{
 			driver: new QqlDriverSqlite(new sqlite3.Database(':memory:')),
 			tables: {
 				users: {
-					access: "writer",
-					readAccess: "reader",
 					fields: {
 						id: {type: "integer", pk: true, notnull: true},
 						name: {type: "text"},

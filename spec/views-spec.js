@@ -8,7 +8,6 @@ describe("qql views",()=>{
 			driver: new QqlDriverSqlite(new sqlite3.Database(':memory:')),
 			tables: {
 				users: {
-					access: "admin",
 					fields: {
 						id: {type: "integer", pk: true, notnull: true},
 						name: {type: "text"},
@@ -19,7 +18,6 @@ describe("qql views",()=>{
 				},
 
 				posts: {
-					access: "admin",
 					fields: {
 						id: {type: "integer", pk: true, notnull: true},
 						title: {type: "text"},
@@ -27,7 +25,8 @@ describe("qql views",()=>{
 						user_id: {type: "reference", reference: "users"},
 						meta: {type: "json"},
 						published: {type: "boolean", notnull: true, default: false}
-					}
+					},
+					policies: [{roles: "admin"}]
 				},
 
 				published_posts: {
@@ -42,7 +41,8 @@ describe("qql views",()=>{
 					exclude: ["meta"],
 					where: {
 						"user_id": "$uid",
-					}
+					},
+					policies: [{roles: ["user","admin"]}]
 				},
 
 				my_profile: {
@@ -81,5 +81,7 @@ describe("qql views",()=>{
 
 		//console.log(await qql.env({uid:1,role: "user"}).query({oneFrom: "my_profile"}));
 		expect((await qql.env({uid:1,role: "user"}).query({oneFrom: "my_profile"})).id).toEqual(1);
+
+		expect((await qql.env({uid:uid,role: "user"}).query({oneFrom: "my_posts"})).id).toEqual(1);
 	})
 })

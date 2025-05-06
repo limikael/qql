@@ -7,17 +7,16 @@ import Policy from "./Policy.js";
 
 export default class Table {
 	constructor({name, qql, fields, viewFrom, singleViewFrom, 
-				access, readAccess, where, include, exclude,
-				policies}) {
+				where, include, exclude, policies, ...extra}) {
 		//console.log("creating table: "+name+JSON.stringify(access)+JSON.stringify(readAccess));
+
+		if (Object.keys(extra).length)
+			throw new Error("Unknown table/view config options: "+String(Object.keys(extra)));
 
 		this.name=name;
 		this.qql=qql;
 
 		if (viewFrom || singleViewFrom) {
-			if (access || readAccess || policies)
-				throw new Error("views can not have security settings, view="+name+JSON.stringify(access)+JSON.stringify(readAccess));
-
 			this.viewFrom=viewFrom||singleViewFrom;
 			this.where=where||{};
 
@@ -71,54 +70,29 @@ export default class Table {
 
 			if (Object.keys(this.fields).filter(fid=>this.fields[fid].pk).length!=1)
 				throw new Error("There must be exactly one primary key for table "+this.name);
+		}
 
-			this.policies=[];
-			if (policies) {
-				for (let policyParams of policies) {
-					this.policies.push(new Policy({
-						...policyParams,
-						tableName: this.name,
-						qql: this.qql
-					}));
-				}
-
-				let rolesSeen=[];
-				for (let policy of this.policies) {
-					if (arrayIntersection(rolesSeen,policy.roles).length) {
-						let m="Ambigous policy for role: "+
-							String(arrayIntersection(rolesSeen,policy.roles))+", "+
-							"table: "+this.name;
-
-						throw new Error(m);
-					}
-
-					rolesSeen.push(...policy.roles);
-				}
+		this.policies=[];
+		if (policies) {
+			for (let policyParams of policies) {
+				this.policies.push(new Policy({
+					...policyParams,
+					tableName: this.name,
+					qql: this.qql
+				}));
 			}
 
-	        if (!access && !readAccess && (this.policies.length==0)) {
-	            access="admin";
-	            readAccess="public";
-	        }
+			let rolesSeen=[];
+			for (let policy of this.policies) {
+				if (arrayIntersection(rolesSeen,policy.roles).length) {
+					let m="Ambigous policy for role: "+
+						String(arrayIntersection(rolesSeen,policy.roles))+", "+
+						"table: "+this.name;
 
-	        access=arrayify(access);
-	        readAccess=[...access,...arrayify(readAccess)];
+					throw new Error(m);
+				}
 
-	        if (access.length) {
-				this.policies.push(new Policy({
-					tableName: this.name,
-					qql: this.qql,
-					roles: access
-				}));
-	        }
-
-			if (readAccess.length) {
-				this.policies.push(new Policy({
-					tableName: this.name,
-					qql: this.qql,
-					roles: readAccess,
-					operations: ["read"]
-				}));
+				rolesSeen.push(...policy.roles);
 			}
 		}
 	}
@@ -497,7 +471,10 @@ export default class Table {
 		let select=query.select;
 		if (!select) {
 			if (policy)
-				select=policy.getReadFields();
+				select=arrayIntersection(
+					policy.getReadFields(),
+					Object.keys(this.fields)
+				);
 
 			else
 				select=Object.keys(this.fields);
@@ -691,10 +668,14 @@ export default class Table {
 		if (env.isRoot())
 			return;
 
-		for (let policy of this.getTable().policies)
+		let policies=this.policies;
+		if (!policies.length)
+			policies=this.getTable().policies;
+
+		for (let policy of policies)
 			if (policy.match(operation,env.getRole()))
 				return policy;
 
-		throw new Error(operation+" on "+this.getTable().name+" not permitted with role "+env.getRole());
+		throw new Error(operation+" on "+this.name+" not permitted with role "+env.getRole());
 	}
 }

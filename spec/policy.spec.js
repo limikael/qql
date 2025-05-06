@@ -111,9 +111,9 @@ describe("policy",()=>{
 		await qql({insertInto: "users", set: {name: "micke", password: "qwerty"}});
 
 		let res=await qql.env({role: "user"}).query({manyFrom: "users"});
-		console.log(res);
+		//console.log(res);
 
 		res=await qql({manyFrom: "users"});
-		console.log(res);
+		//console.log(res);
 	});
 });

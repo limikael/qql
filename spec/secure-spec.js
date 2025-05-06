@@ -8,15 +8,17 @@ describe("qql secutiry",()=>{
 			driver: new QqlDriverSqlite(new sqlite3.Database(':memory:')),
 			tables: {
 				users: {
-					access: "writer",
-					readAccess: "reader",
 					fields: {
 						id: {type: "integer", pk: true, notnull: true},
 						name: {type: "text"},
 						num: {type: "integer"},
 						test: {type: "json"},
 						another: {type: "text"}
-					}
+					},
+					policies: [
+						{roles: "writer"},
+						{roles: "reader", operations: "read"}
+					]
 				}
 			}
 		});
