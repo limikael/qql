@@ -562,6 +562,7 @@ export default class Table {
 		return manyField;
 	}
 
+	// TODO!!! make sure that the via column is selected.
 	async handleInclude(env, rows, fieldName, include) {
 		let includeQuery={...include};
 
@@ -578,9 +579,17 @@ export default class Table {
 				via=refTable.findReferencingField(this.name);
 
 			let thisPk=this.getPrimaryKeyField().name;
-			let keys=arrayUnique(rows.map(row=>row[thisPk]));
+			let keys=arrayUnique(rows.map(row=>{
+				if (!row.hasOwnProperty(thisPk))
+					throw new Error("Need to select the primary key for include");
+
+				return row[thisPk]
+			}));
 
 			let rowByPk=Object.fromEntries(rows.map(row=>[row[thisPk],row]));
+
+			if (includeQuery.select && !includeQuery.select.includes(via))
+				throw new Error("Need to select the via column for include");
 
 			delete includeQuery.via;
 			let refRows=await this.qql.envQuery(env,{
