@@ -33,7 +33,7 @@ export function canonicalizeCondition(where) {
         let val=where[k];
 
         if (val===undefined)
-        	throw new Error("where cond cannot be undefined");
+        	throw new Error("where cond cannot be undefined for "+k);
 
         if (!retWhere.hasOwnProperty(name))
             retWhere[name]={};
@@ -136,7 +136,10 @@ export default class WhereClause {
 		}
 
 		else {
-			let escapedFieldName=this.qql.driver.escapeId(fieldName);
+			let escapedFieldName=
+				this.escapeId(this.tableName)+"."+
+				this.qql.driver.escapeId(fieldName);
+
 			if (this.alias)
 				escapedFieldName=
 					this.escapeId(this.alias)+"."+
@@ -242,10 +245,15 @@ export default class WhereClause {
 		return clause;
 	}
 
-	async matchFieldRefCondition(record, fieldName, whereCond) {
+	async matchFieldRefCondition(record, fieldName, whereCond, mode) {
 		let field=this.qql.getTableByName(this.tableName).getFieldByName(fieldName);
 		let refTable=this.qql.getTableByName(field.reference);
 		let refPkFieldName=refTable.getPrimaryKeyField().name;
+
+		if (!record[fieldName])
+			return false;
+
+		//console.log("match field ref cond ",record);
 
 		let refRecord=await this.qql({
 			oneFrom: refTable.name,
@@ -258,13 +266,16 @@ export default class WhereClause {
 			qql: this.qql
 		});
 
-		return await refWhere.match(refRecord);
+		return await refWhere.match(refRecord,mode);
 	}
 
-	async matchFieldCondition(record, fieldName, op, val) {
+	async matchFieldCondition(record, fieldName, op, val, mode) {
+		if (mode=="compatible" && !record.hasOwnProperty(fieldName))
+			return true;
+
 		switch (op) {
 			case "$ref":
-				return await this.matchFieldRefCondition(record, fieldName, val);
+				return await this.matchFieldRefCondition(record, fieldName, val, mode);
 				break;
 
 			case "$eq":
@@ -304,16 +315,16 @@ export default class WhereClause {
 		}
 	}
 
-	async matchFieldConditions(record, fieldName, conds) {
+	async matchFieldConditions(record, fieldName, conds, mode) {
 		for (let k in conds) {
-			if (!await this.matchFieldCondition(record, fieldName, k, conds[k]))
+			if (!await this.matchFieldCondition(record, fieldName, k, conds[k], mode))
 				return false;
 		}
 
 		return true;
 	}
 
-	async matchLogical(record, op, whereConds) {
+	async matchLogical(record, op, whereConds, mode) {
 		let subResults=[];
 
 		for (let whereCond of whereConds) {
@@ -325,7 +336,7 @@ export default class WhereClause {
 				//idGenerator: this.idGenerator
 			});
 
-			subResults.push(await subWhere.match(record));
+			subResults.push(await subWhere.match(record,mode));
 		}
 
 		if (!subResults.length)
@@ -350,18 +361,21 @@ export default class WhereClause {
 		}
 	}
 
-	async match(record) {
+	async match(record, mode) {
+		if (!mode || !["strict","compatible"].includes(mode))
+			throw new Error("Need conformance mode for match");
+
 		if (!record)
-			return false;
+			record={};
 
 		for (let k in this.where) {
 			if (["$or","$and"].includes(k)) {
-				if (!await this.matchLogical(record,k,this.where[k]))
+				if (!await this.matchLogical(record,k,this.where[k],mode))
 					return false;
 			}
 
 			else {
-				if (!await this.matchFieldConditions(record,k,this.where[k]))
+				if (!await this.matchFieldConditions(record,k,this.where[k],mode))
 					return false;
 			}
 		}
@@ -447,5 +461,30 @@ export default class WhereClause {
 			tableName: this.tableName,
 			qql: this.qql
 		});
+	}
+
+	populateReversible(record) {
+		for (let k in this.where) {
+			if (!k.startsWith("$") && 
+					!record.hasOwnProperty(k) &&
+					this.where[k].hasOwnProperty("$eq")) {
+				record[k]=this.where[k].$eq;
+			}
+
+			if (k=="$and") {
+				for (let whereCond of this.where[k]) {
+					let subWhere=new WhereClause({
+						where: whereCond,
+						tableName: this.tableName,
+						alias: this.alias,
+						qql: this.qql,
+					});
+
+					subWhere.populateReversible(record);
+				}
+			}
+		}
+
+		return record;
 	}
 }

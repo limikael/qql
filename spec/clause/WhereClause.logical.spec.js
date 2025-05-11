@@ -56,7 +56,7 @@ describe("where clause logical ops",()=>{
 		//console.log(w.getWhereClause());
 		//console.log(w.getValues());
 
-		expect(w.getWhereClause()).toEqual("WHERE (`user_id`=? OR `user_id`=?)");
+		expect(w.getWhereClause()).toEqual("WHERE (`resources`.`user_id`=? OR `resources`.`user_id`=?)");
 		expect(w.getValues()).toEqual([1,2]);
 	});
 
@@ -68,7 +68,7 @@ describe("where clause logical ops",()=>{
 		}});
 
 		//console.log(w.getWhereClause());
-		expect(w.getWhereClause()).toEqual("WHERE `name`=? AND (`name`=?)");
+		expect(w.getWhereClause()).toEqual("WHERE `resources`.`name`=? AND (`resources`.`name`=?)");
 
 		//console.log(w.getValues());
 		expect(w.getValues()).toEqual(["hello","hello2"]);
@@ -82,7 +82,7 @@ describe("where clause logical ops",()=>{
 		}});
 
 		//console.log(w.getWhereClause());
-		expect(w.getWhereClause()).toEqual("WHERE `name`=?");
+		expect(w.getWhereClause()).toEqual("WHERE `resources`.`name`=?");
 
 		//console.log(w.getValues());
 		expect(w.getValues()).toEqual(["hello"]);
@@ -105,7 +105,7 @@ describe("where clause logical ops",()=>{
 		}});
 
 		//console.log(w.getWhereClause());
-		expect(w.getWhereClause()).toEqual("WHERE `name`=?");
+		expect(w.getWhereClause()).toEqual("WHERE `resources`.`name`=?");
 
 		//console.log(w.getValues());
 		expect(w.getValues()).toEqual(["hello"]);

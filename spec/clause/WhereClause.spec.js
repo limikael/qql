@@ -47,6 +47,7 @@ describe("where clause",()=>{
 						id: {type: "integer", pk: true},
 						user_id: {reference: "users"},
 						tier: {type: "text"},
+						name: {type: "text"}
 					}
 				},
 				resources: {
@@ -115,11 +116,11 @@ describe("where clause",()=>{
 		//console.log(w.getWhereClause());
 		//console.log(w.getValues());
 
-		expect(w.getWhereClause()).toEqual("WHERE UPPER(`name`) LIKE ?");
+		expect(w.getWhereClause()).toEqual("WHERE UPPER(`hellotable`.`name`) LIKE ?");
 		expect(w.getValues()).toEqual([ '%ICKE%' ]);
 
-		expect(await w.match({name: "micke"})).toEqual(true);
-		expect(await w.match({name: "m"})).toEqual(false);
+		expect(await w.match({name: "micke"},"strict")).toEqual(true);
+		expect(await w.match({name: "m"},"strict")).toEqual(false);
 	});
 
 	it("can use sets",async ()=>{
@@ -144,12 +145,12 @@ describe("where clause",()=>{
 		//console.log(w.getWhereClause());
 		//console.log(w.getValues());
 
-		expect(w.getWhereClause()).toEqual("WHERE `name` IN (?,?)");
+		expect(w.getWhereClause()).toEqual("WHERE `hellotable`.`name` IN (?,?)");
 		expect(w.getValues()).toEqual([ 'micke', 'someone' ]);
 
-		expect(await w.match({name: "micke"})).toEqual(true);
-		expect(await w.match({name: "someone"})).toEqual(true);
-		expect(await w.match({name: "bla"})).toEqual(false);
+		expect(await w.match({name: "micke"},"strict")).toEqual(true);
+		expect(await w.match({name: "someone"},"strict")).toEqual(true);
+		expect(await w.match({name: "bla"},"strict")).toEqual(false);
 	});
 
 	it("can process a condition with ref",async ()=>{
@@ -181,7 +182,7 @@ describe("where clause",()=>{
 
 		//expect(w.getJoinClause()).toEqual("LEFT JOIN `agents` AS _j1 ON `resources`.`agent_id`=_j1.`id` LEFT JOIN `agents` AS _j2 ON `resources`.`subagent_id`=_j2.`id` LEFT JOIN `users` AS _j3 ON `_j2`.`user_id`=_j3.`id` LEFT JOIN `users` AS _j4 ON `resources`.`user_id`=_j4.`id`");
 		expect(w.getJoinClause()).toEqual("LEFT JOIN `agents` AS `_j1` ON `resources`.`agent_id`=`_j1`.`id` LEFT JOIN `agents` AS `_j2` ON `resources`.`subagent_id`=`_j2`.`id` LEFT JOIN `users` AS `_j3` ON `_j2`.`user_id`=`_j3`.`id` LEFT JOIN `users` AS `_j4` ON `resources`.`user_id`=`_j4`.`id`");
-		expect(w.getWhereClause()).toEqual("WHERE `_j1`.`user_id`=? AND `_j2`.`tier`=? AND `_j3`.`role`=? AND `_j4`.`role`=? AND `id`=?");
+		expect(w.getWhereClause()).toEqual("WHERE `_j1`.`user_id`=? AND `_j2`.`tier`=? AND `_j3`.`role`=? AND `_j4`.`role`=? AND `resources`.`id`=?");
 		expect(w.getValues()).toEqual([ 123, 'sub', 'admin', 'user', 1 ]);
 	});
 
@@ -228,16 +229,19 @@ describe("where clause",()=>{
 			qql: qql, 
 			tableName: "resources",
 			where: {
-				id: 1
+				id: 1,
+				agent_id: 8
 			}
 		});
 
-		expect(await w.match({id: 1})).toEqual(true);
-		expect(await w.match({id: 2})).toEqual(false);
-		expect(await w.match({})).toEqual(false);
+		expect(await w.match({id: 1, agent_id: 8},"strict")).toEqual(true);
+		expect(await w.match({id: 1},"compatible")).toEqual(true);
+		expect(await w.match({id: 2},"strict")).toEqual(false);
+		expect(await w.match({},"strict")).toEqual(false);
+		expect(await w.match({},"compatible")).toEqual(true);
 	});
 
-	it("can check if a record matches with logical condition",async ()=>{
+	it("can check with logical condition",async ()=>{
 		let qql=await createAgentsAndResourcesQql();
 
 		let w=new WhereClause({
@@ -248,10 +252,10 @@ describe("where clause",()=>{
 			}
 		});
 
-		expect(await w.match({id: 1})).toEqual(true);
-		expect(await w.match({id: 2})).toEqual(true);
-		expect(await w.match({id: 3})).toEqual(false);
-		expect(await w.match({})).toEqual(false);
+		expect(await w.match({id: 1},"strict")).toEqual(true);
+		expect(await w.match({id: 2},"strict")).toEqual(true);
+		expect(await w.match({id: 3},"strict")).toEqual(false);
+		expect(await w.match({},"strict")).toEqual(false);
 
 		let w2=new WhereClause({
 			qql: qql, 
@@ -261,12 +265,12 @@ describe("where clause",()=>{
 			}
 		});
 
-		expect(await w2.match({id: 0})).toEqual(false);
-		expect(await w2.match({id: 5})).toEqual(true);
-		expect(await w2.match({id: 11})).toEqual(false);
+		expect(await w2.match({id: 0},"strict")).toEqual(false);
+		expect(await w2.match({id: 5},"strict")).toEqual(true);
+		expect(await w2.match({id: 11},"strict")).toEqual(false);
 	});
 
-	it("can check if a record matches with reference",async ()=>{
+	it("can check with reference",async ()=>{
 		let qql=await createAgentsAndResourcesQql();
 
 		let w=new WhereClause({
@@ -292,9 +296,9 @@ describe("where clause",()=>{
 		}});
 
 		//console.log(await w.match({agent_id: agentId}));
-		expect(await w.match({agent_id: agentId1})).toEqual(true);
-		expect(await w.match({agent_id: agentId2})).toEqual(true);
-		expect(await w.match({agent_id: agentId3})).toEqual(false);
+		expect(await w.match({agent_id: agentId1},"strict")).toEqual(true);
+		expect(await w.match({agent_id: agentId2},"strict")).toEqual(true);
+		expect(await w.match({agent_id: agentId3},"strict")).toEqual(false);
 
 		//expect(w.match({agent_id: 1}));
 	});
@@ -328,7 +332,7 @@ describe("where clause",()=>{
 		expect(JSON.stringify(w2.where)).toEqual('{"name":{"$eq":1234},"agent_id":{"$ref":{"tier":{"$eq":"THETIER"}}},"$and":[{"agent_id":{"$eq":1234}},{"agent_id":{"$eq":"blabla"}}]}');
 	});
 
-	it("works works with adding a where FIXME",async ()=>{
+	it("works works with adding a where",async ()=>{
 		let qql=await createAgentsAndResourcesQql();
 
 		let w=new WhereClause({
@@ -339,7 +343,7 @@ describe("where clause",()=>{
 			}
 		});
 
-		/*w.addOrWhereClause({
+		w.addOrWhereClause({
 			qql: qql,
 			tableName: "agents",
 			where: {tier: "main"}
@@ -348,8 +352,47 @@ describe("where clause",()=>{
 		w.addOrWhereClause({
 			qql: qql,
 			tableName: "agents",
-		});*/
+		});
 
 		//console.log(w.getWhereClause());
+		expect(w.getWhereClause()).toEqual("");
+	});
+
+	it("can populate reversible fields",async()=>{
+		let qql=await createAgentsAndResourcesQql();
+
+		let w=new WhereClause({
+			qql: qql,
+			tableName: "agents",
+			where: {
+				user_id: 5,
+				name: "hello"
+			}
+		});
+
+		let record={tier: "sub", name: "something else"};
+		w.populateReversible(record);
+
+		//console.log(record);
+		expect(record).toEqual({tier: "sub", user_id: 5, name: "something else"})
+	});
+
+	it("can populate reversible fields with and",async()=>{
+		let qql=await createAgentsAndResourcesQql();
+
+		let w=new WhereClause({
+			qql: qql,
+			tableName: "agents",
+			where: {
+				name: "hello",
+				$and: [{user_id: 5}]
+			}
+		});
+
+		let record={tier: "sub", name: "something else"};
+		w.populateReversible(record);
+
+		//console.log(record);
+		expect(record).toEqual({tier: "sub", user_id: 5, name: "something else"})
 	});
 });

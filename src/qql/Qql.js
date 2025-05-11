@@ -59,6 +59,8 @@ export default class Qql extends CallableClass {
 	}
 
 	async runQuery(query, params, returnType) {
+		//console.log(query);
+
 		if (!Array.isArray(params))
 			throw new Error("params should be array!");
 

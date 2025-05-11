@@ -1,6 +1,7 @@
 import Field from "./Field.js";
 import {assertAllowedKeys, arrayify, jsonClone, 
-		arrayUnique, arrayDifference, arrayIntersection} from "../utils/js-util.js";
+		arrayUnique, arrayDifference, arrayIntersection,
+		DeclaredError} from "../utils/js-util.js";
 import {canonicalizeJoins, canonicalizeSort} from "../lib/qql-util.js";
 import WhereClause from "../clause/WhereClause.js";
 import Policy from "./Policy.js";
@@ -95,6 +96,10 @@ export default class Table {
 				rolesSeen.push(...policy.roles);
 			}
 		}
+	}
+
+	getFieldNames() {
+		return Object.keys(this.fields);
 	}
 
 	getFieldByName(fieldName) {
@@ -272,12 +277,39 @@ export default class Table {
 		return `CREATE TABLE \`${this.name+suffix}\` (${parts.join(",")})`;
 	}
 
+	async getIdsByWhere(w) {
+		let	s="SELECT "+
+				this.escapedCanonicalFieldName(this.getPrimaryKeyFieldName())+" AS id "+
+				"FROM "+this.qql.escapeId(this.getTable().name)+" "+
+				w.getJoinClause()+
+				w.getWhereClause();
+
+		let rows=await this.qql.runQuery(s,w.getValues(),"rows");
+		let res=rows.map(r=>r.id);
+
+		//console.log(rows);
+		//console.log(res);
+		//console.log(s);
+
+		return res;
+	}
+
 	async queryUpdate(env, query) {
+		if (this.singleton)
+			throw new Error("singleton update not implemented for now");
+
+		/*if (query.return=="item")
+			throw new Error("can't return item from update");*/
+
 		assertAllowedKeys(query,["update","where","set","return"]);
 		let policy=this.getApplicablePolicy(env,"update");
 
 		if (policy)
 			policy.assertFieldsWritable(Object.keys(query.set));
+
+		let checkW=this.createWhereClause(env,null,policy);
+		if (!await checkW.match(query.set,"compatible"))
+			throw new DeclaredError("Data for update not allowed",{status: 403});
 
 		let setParts=[];
 		let setParams=[];
@@ -303,20 +335,34 @@ export default class Table {
 		}
 
 		let w=this.createWhereClause(env,query.where,policy);
-		let s=
-			"UPDATE "+
-			this.qql.escapeId(this.getTable().name)+" "+
-			w.getJoinClause()+
-			" SET "+setParts.join(",")+" "+
-			w.getWhereClause();
+		let changes;
 
-		let params=[...setParams,...w.getValues()];
-		let changes=await this.qql.runQuery(s,params,"changes");
-		if (this.singleton && !changes) {
-			this.performQueryInsertInto(env,{
-				set: {...query.where, ...query.set}
-			});
+		if (w.getJoins().length) {
+			let ids=await this.getIdsByWhere(w);
+			let s="UPDATE "+
+				this.qql.escapeId(this.getTable().name)+
+				" SET "+setParts.join(",")+
+				" WHERE "+this.qql.escapeId(this.getPrimaryKeyFieldName())+
+				" IN ("+Array(ids.length).fill("?").join(",")+")";
+
+			//console.log(s);
+
+			let params=[...setParams,...ids];
+			changes=await this.qql.runQuery(s,params,"changes");
 		}
+
+		else {
+			let s="UPDATE "+
+				this.qql.escapeId(this.getTable().name)+" "+
+				w.getJoinClause()+
+				" SET "+setParts.join(",")+" "+
+				w.getWhereClause();
+
+			let params=[...setParams,...w.getValues()];
+			changes=await this.qql.runQuery(s,params,"changes");
+		}
+
+		//console.log(s);
 
 		if (!query.return)
 			query.return="changes";
@@ -362,13 +408,30 @@ export default class Table {
 		}
 
 		let w=this.createWhereClause(env,query.where,policy);
-		let s=
-			"DELETE FROM "+
-			this.qql.escapeId(this.getTable().name)+" "+
-			w.getJoinClause()+" "+
-			w.getWhereClause();
+		let changes;
 
-		let changes=await this.qql.runQuery(s,w.getValues(),"changes");
+		if (w.getJoins().length) {
+			let ids=await this.getIdsByWhere(w);
+			let s="DELETE FROM "+
+				this.qql.escapeId(this.getTable().name)+" "+
+				" WHERE "+this.qql.escapeId(this.getPrimaryKeyFieldName())+
+				" IN ("+Array(ids.length).fill("?").join(",")+")";
+
+			//console.log(s);
+
+			let params=ids;
+			changes=await this.qql.runQuery(s,params,"changes");
+		}
+
+		else {
+			let s=
+				"DELETE FROM "+
+				this.qql.escapeId(this.getTable().name)+" "+
+				w.getJoinClause()+" "+
+				w.getWhereClause();
+
+			changes=await this.qql.runQuery(s,w.getValues(),"changes");
+		}
 
 		if (!query.return)
 			query.return="changes";
@@ -388,30 +451,31 @@ export default class Table {
 		assertAllowedKeys(query,["insertInto","set","return"]);
 
 		let policy=this.getApplicablePolicy(env,"create");
+		let set=query.set;
+		if (!set || !Object.keys(set).length)
+			throw new Error("Can't insert empty set");
+
+		let unknown=arrayDifference(Object.keys(set),this.getFieldNames());
+		if (unknown.length)
+			throw new Error("Unknown fields for insert: "+String(unknown));
 
 		if (policy)
-			policy.assertFieldsWritable(Object.keys(query.set));
+			policy.assertFieldsWritable(Object.keys(set));
+
+		let w=this.createWhereClause(env,null,policy);
+		w.populateReversible(set);
+
+		if (!await w.match(set,"strict"))
+			throw new DeclaredError("Inserted data not allowed",{status: 403});
 
 		let fieldNames=[];
 		let values=[];
 
-		for (let k in query.set) {
-			if (!this.fields[k])
-				throw new Error("No such field: "+k);
-
-			let field=this.fields[k];
+		for (let k in set) {
+			let field=this.getTable().fields[k];
 			fieldNames.push(this.qql.escapeId(field.name));
-			let representation=field.represent(query.set[k]);
-			//values.push(this.qql.escapeValue(representation));
+			let representation=field.represent(set[k]);
 			values.push(representation);
-		}
-
-		if (this.isView()) {
-			for (let k in this.where) {
-				fieldNames.push(this.qql.escapeId(k));
-				//values.push(this.qql.escapeValue(env.substituteVars(this.where[k])));
-				values.push(env.substituteVars(this.where[k]));
-			}
 		}
 
 		let s=
@@ -470,7 +534,12 @@ export default class Table {
 		return rows[0].count;
 	}
 
+	escapedCanonicalFieldName(fn) {
+		return this.qql.escapeId(this.getTable().name)+"."+this.qql.escapeId(fn);
+	}
+
 	async queryManyFrom(env, query) {
+		//console.log("******** yep running **********");
 		assertAllowedKeys(query,["select","unselect","manyFrom","limit","offset","where","include","sort"]);
 		let policy=this.getApplicablePolicy(env,"read");
 
@@ -496,10 +565,11 @@ export default class Table {
 			if (!this.fields[col])
 				throw new Error("No such column: "+col);
 
+		//console.log(query.where);
 		let w=this.createWhereClause(env,query.where,policy);
 
 		let s=
-			"SELECT "+select.map(this.qql.escapeId).join(",")+
+			"SELECT "+select.map(f=>this.escapedCanonicalFieldName(f)).join(",")+
 			" FROM "+
 			this.qql.escapeId(this.getTable().name)+` `+
 			w.getJoinClause()+" "+
@@ -508,7 +578,7 @@ export default class Table {
 		let sort=canonicalizeSort(query.sort);
 		if (Object.keys(sort).length) {
 			s+=" ORDER BY "+Object.keys(sort)
-				.map(k=>this.qql.escapeId(k)+" "+sort[k])
+				.map(k=>this.escapedCanonicalFieldName(k)+" "+sort[k])
 				.join(",");
 		}
 
@@ -562,7 +632,6 @@ export default class Table {
 		return manyField;
 	}
 
-	// TODO!!! make sure that the via column is selected.
 	async handleInclude(env, rows, fieldName, include) {
 		let includeQuery={...include};
 

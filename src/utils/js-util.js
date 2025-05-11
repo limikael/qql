@@ -1,3 +1,15 @@
+export class DeclaredError extends Error {
+    constructor(...args) {
+        super(...args);
+
+        let options=args[1];
+        if (options && options.status)
+            this.status=options.status;
+
+        this.declared=true;
+    }
+}
+
 export function arrayUnique(a) {
 	function onlyUnique(value, index, array) {
 		return array.indexOf(value) === index;
