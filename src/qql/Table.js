@@ -447,8 +447,61 @@ export default class Table {
 		}
 	}
 
+	async performQueryInsertIntoValues(env, query) {
+		assertAllowedKeys(query,["insertInto","values","return"]);
+		if (env.isChecked())
+			throw new Error("Can't insert values into checked env");
+
+		if (query.hasOwnProperty("set"))
+			throw new Error("Can't insert values with both values and set");
+
+		if (this.isView())
+			throw new Error("Can't insert values into view");
+
+		if (query.return)
+			throw new Error("Insert with values can't return anything");
+
+		let values=query.values;
+		if (!Array.isArray(values))
+			throw new Error("Expected values to be an array of objects");
+
+		let columns=[];
+		for (let value of values)
+			for (let k in value)
+				if (!columns.includes(k))
+					columns.push(k);
+
+		let queryValues=[];
+		let queryParts=[];
+		for (let value of values) {
+			queryParts.push("("+Array(columns.length).fill("?").join(",")+")");
+			for (let col of columns) {
+				if (value.hasOwnProperty(col)) {
+					let field=this.getTable().fields[col];
+					queryValues.push(field.represent(value[col]))
+				}
+
+				else {
+					queryValues.push(null);
+				}
+			}
+		}
+
+		let s=
+			"INSERT INTO "+
+			this.qql.escapeId(this.getTable().name)+" ("+
+			columns.map(c=>this.qql.escapeId(c)).join(",")+") VALUES "+
+			queryParts.join(",");
+
+		await this.qql.runQuery(s,queryValues,"none");
+	}
+
 	async performQueryInsertInto(env, query) {
-		assertAllowedKeys(query,["insertInto","set","return"]);
+		assertAllowedKeys(query,["insertInto","set","values","return"]);
+
+		if (query.hasOwnProperty("values")) {
+			return this.performQueryInsertIntoValues(env,query);
+		}
 
 		let policy=this.getApplicablePolicy(env,"create");
 		let set=query.set;

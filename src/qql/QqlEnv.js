@@ -17,6 +17,10 @@ export default class QqlEnv extends CallableClass {
 		return this.qql.envQuery(this,query);
 	}
 
+	isChecked() {
+		return !this.root;
+	}
+
 	isRoot() {
 		return this.root;
 	}
