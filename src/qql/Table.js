@@ -1,7 +1,7 @@
 import Field from "./Field.js";
 import {assertAllowedKeys, arrayify, jsonClone, 
 		arrayUnique, arrayDifference, arrayIntersection,
-		DeclaredError} from "../utils/js-util.js";
+		DeclaredError, arrayChunkify} from "../utils/js-util.js";
 import {canonicalizeJoins, canonicalizeSort} from "../lib/qql-util.js";
 import WhereClause from "../clause/WhereClause.js";
 import Policy from "./Policy.js";
@@ -448,7 +448,7 @@ export default class Table {
 	}
 
 	async performQueryInsertIntoValues(env, query) {
-		assertAllowedKeys(query,["insertInto","values","return"]);
+		assertAllowedKeys(query,["insertInto","values","return","batchSize"]);
 		if (env.isChecked())
 			throw new Error("Can't insert values into checked env");
 
@@ -471,33 +471,41 @@ export default class Table {
 				if (!columns.includes(k))
 					columns.push(k);
 
-		let queryValues=[];
-		let queryParts=[];
-		for (let value of values) {
-			queryParts.push("("+Array(columns.length).fill("?").join(",")+")");
-			for (let col of columns) {
-				if (value.hasOwnProperty(col)) {
-					let field=this.getTable().fields[col];
-					queryValues.push(field.represent(value[col]))
-				}
+		let valuesChunks=[values];
+		if (query.batchSize)
+			valuesChunks=arrayChunkify(values,query.batchSize);
 
-				else {
-					queryValues.push(null);
+		// chunkify here...
+
+		for (let valuesChunk of valuesChunks) {
+			let queryValues=[];
+			let queryParts=[];
+			for (let value of valuesChunk) {
+				queryParts.push("("+Array(columns.length).fill("?").join(",")+")");
+				for (let col of columns) {
+					if (value.hasOwnProperty(col)) {
+						let field=this.getTable().fields[col];
+						queryValues.push(field.represent(value[col]))
+					}
+
+					else {
+						queryValues.push(null);
+					}
 				}
 			}
+
+			let s=
+				"INSERT INTO "+
+				this.qql.escapeId(this.getTable().name)+" ("+
+				columns.map(c=>this.qql.escapeId(c)).join(",")+") VALUES "+
+				queryParts.join(",");
+
+			await this.qql.runQuery(s,queryValues,"none");
 		}
-
-		let s=
-			"INSERT INTO "+
-			this.qql.escapeId(this.getTable().name)+" ("+
-			columns.map(c=>this.qql.escapeId(c)).join(",")+") VALUES "+
-			queryParts.join(",");
-
-		await this.qql.runQuery(s,queryValues,"none");
 	}
 
 	async performQueryInsertInto(env, query) {
-		assertAllowedKeys(query,["insertInto","set","values","return"]);
+		assertAllowedKeys(query,["insertInto","set","values","return","batchSize"]);
 
 		if (query.hasOwnProperty("values")) {
 			return this.performQueryInsertIntoValues(env,query);
