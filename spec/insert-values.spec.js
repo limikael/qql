@@ -73,4 +73,39 @@ describe("insert values",()=>{
 			values: []
 		});
 	});
+
+	it("where in empty array",async ()=>{
+		let qql=createQql({
+			driver: new QqlDriverSqlite(new sqlite3.Database(":memory:")),
+			tables: {
+				users: {
+					fields: {
+						id: {type: "integer", pk: true, notnull: true},
+						name: {type: "text"},
+						num: {type: "integer"}
+					}
+				},
+			}
+		});
+
+		await qql.migrate({log: ()=>{}});
+
+		let querySpy=spyOn(qql,"runQuery").and.callThrough();
+		await qql({
+			insertInto: "users",
+			values: [
+				{name: "micke1", num: 1},
+				{name: "micke2", num: 2},
+				{name: "micke3", num: 3},
+				{name: "micke4", num: 4},
+				{name: "micke5", num: 5},
+				{name: "micke6", num: 6},
+				{name: "micke7", num: 7},
+				{name: "micke8", num: 8},
+			]
+		});
+
+		expect((await qql({manyFrom: "users", where: {num: {$in: [1,2]}}})).length).toEqual(2);
+		expect((await qql({manyFrom: "users", where: {num: {$in: []}}})).length).toEqual(0);
+	});
 });
