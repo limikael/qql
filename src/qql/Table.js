@@ -465,6 +465,9 @@ export default class Table {
 		if (!Array.isArray(values))
 			throw new Error("Expected values to be an array of objects");
 
+		if (!values.length)
+			return;
+
 		let columns=[];
 		for (let value of values)
 			for (let k in value)

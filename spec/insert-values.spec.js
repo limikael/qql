@@ -52,4 +52,25 @@ describe("insert values",()=>{
 			{id: 8, name: "micke2", num: 8},
 		]);
 	});
-})
+
+	it("doesn't fail on an empty array",async ()=>{
+		let qql=createQql({
+			driver: new QqlDriverSqlite(new sqlite3.Database(":memory:")),
+			tables: {
+				users: {
+					fields: {
+						id: {type: "integer", pk: true, notnull: true},
+						name: {type: "text"},
+						num: {type: "integer"}
+					}
+				},
+			}
+		});
+
+		await qql.migrate({log: ()=>{}});
+		await qql({
+			insertInto: "users",
+			values: []
+		});
+	});
+});
