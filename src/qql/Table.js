@@ -83,7 +83,7 @@ export default class Table {
 				}));
 			}
 
-			let rolesSeen=[];
+			/*let rolesSeen=[];
 			for (let policy of this.policies) {
 				if (arrayIntersection(rolesSeen,policy.roles).length) {
 					let m="Ambigous policy for role: "+
@@ -94,7 +94,7 @@ export default class Table {
 				}
 
 				rolesSeen.push(...policy.roles);
-			}
+			}*/
 		}
 	}
 
@@ -600,6 +600,34 @@ export default class Table {
 
 	escapedCanonicalFieldName(fn) {
 		return this.qql.escapeId(this.getTable().name)+"."+this.qql.escapeId(fn);
+	}
+
+	async queryOneFrom(env, query) {
+		let includeRowPolicies=query.includeRowPolicies;
+
+		delete query.oneFrom;
+		delete query.includeRowPolicies;
+
+		let rows=await this.queryManyFrom(env, query);
+		if (!rows.length)
+			return null;
+
+		let row=rows[0];
+		if (includeRowPolicies) {
+			row.$policies=[];
+
+			let policy=this.getApplicablePolicy(env,"update");
+			if (policy) {
+				let pw=policy.getWhereClause().mapValues(v=>env.substituteVars(v));
+				if (await pw.match(row,"strict")) {
+					row.$policies.push({
+						operations: policy.operations
+					});
+				}
+			}
+		}
+
+		return row;
 	}
 
 	async queryManyFrom(env, query) {

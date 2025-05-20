@@ -127,16 +127,11 @@ export default class Qql extends CallableClass {
 	envQuery=async (env, query)=>{
 		//console.log("q: ",query);
 		if (query.oneFrom) {
-			let {oneFrom, ...q}=query;
-			let rows=await this.envQuery(env,{
-				...q,
-				manyFrom: query.oneFrom,
-			});
+			let table=this.tables[query.oneFrom];
+			if (!table)
+				throw new Error("No such table: "+query.manyFrom);
 
-			if (!rows.length)
-				return null;
-
-			return rows[0];
+			return await table.queryOneFrom(env,query);
 		}
 
 		else if (query.manyFrom) {

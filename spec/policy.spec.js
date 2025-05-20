@@ -85,7 +85,7 @@ describe("policy",()=>{
 		expect((await qql.env({role: "admin"}).query({manyFrom: "posts"})).length).toEqual(2);
 	});
 
-	it("checks for just one policy per role",async ()=>{
+	/*it("checks for just one policy per role",async ()=>{
 		expect(()=>{
 			let qql=createQql({
 				driver: new QqlDriverSqlite(new sqlite3.Database(':memory:')),
@@ -127,7 +127,7 @@ describe("policy",()=>{
 				}
 			});
 		}).toThrow(new Error("Ambigous policy for role: user, table: users"));
-	});
+	});*/
 
 	it("handles role fields",async ()=>{
 		let qql=createQql({
