@@ -98,8 +98,19 @@ export default class Table {
 		}
 	}
 
-	getFieldNames() {
-		return Object.keys(this.fields);
+	getFieldNames({include, exclude}={}) {
+		let fieldNames=include;
+		if (!fieldNames)
+			fieldNames=Object.keys(this.fields);
+
+		if (exclude)
+			fieldNames=arrayDifference(fieldNames,exclude);
+
+		for (let col of fieldNames)
+			if (!this.fields[col])
+				throw new Error("No such column: "+col);
+
+		return fieldNames;
 	}
 
 	getFieldByName(fieldName) {
@@ -194,7 +205,7 @@ export default class Table {
 		return this.viewWhereClause;
 	}
 
-	createWhereClause(env, where, policy) {
+	createWhereClause(env, where, policies) {
 		let w=new WhereClause({
 			qql: this.qql,
 			tableName: this.getTable().name,
@@ -202,13 +213,18 @@ export default class Table {
 		});
 
 		if (this.isView()) {
-			let vw=this.getViewWhereClause().mapValues(v=>env.substituteVars(v));
+			let vw=this.getViewWhereClause().mapValues(env.substituteVars);
 			w.addAndWhereClause(vw);
 		}
 
-		if (policy) {
-			let pw=policy.getWhereClause().mapValues(v=>env.substituteVars(v));
-			w.addAndWhereClause(pw)
+		if (policies) {
+			if (!Array.isArray(policies))
+				throw new Error("policies is not an array");
+
+			for (let policy of policies) {
+				let pw=policy.getWhereClause().mapValues(env.substituteVars);
+				w.addOrWhereClause(pw)
+			}
 		}
 
 		return w;
@@ -302,12 +318,11 @@ export default class Table {
 			throw new Error("can't return item from update");*/
 
 		assertAllowedKeys(query,["update","where","set","return"]);
-		let policy=this.getApplicablePolicy(env,"update");
+		//let policies=this.getApplicablePolicies(env,"update");
 
-		if (policy)
-			policy.assertFieldsWritable(Object.keys(query.set));
+		let policies=this.assertApplicablePolicies(env,"update",Object.keys(query.set));
 
-		let checkW=this.createWhereClause(env,null,policy);
+		let checkW=this.createWhereClause(env,null,policies);
 		if (!await checkW.match(query.set,"compatible"))
 			throw new DeclaredError("Data for update not allowed",{status: 403});
 
@@ -334,7 +349,7 @@ export default class Table {
 				affectedId=affectedRows[0][this.getPrimaryKeyFieldName()];
 		}
 
-		let w=this.createWhereClause(env,query.where,policy);
+		let w=this.createWhereClause(env,query.where,policies);
 		let changes;
 
 		if (w.getJoins().length) {
@@ -394,7 +409,7 @@ export default class Table {
 			throw new Error("Can't delete from a singleton view");
 
 		assertAllowedKeys(query,["deleteFrom","where","return"]);
-		let policy=this.getApplicablePolicy(env,"delete");
+		let policies=this.getApplicablePolicies(env,"delete");
 
 		let affectedRow;
 		if (query.return=="item") {
@@ -407,7 +422,7 @@ export default class Table {
 				affectedRow=affectedRows[0];
 		}
 
-		let w=this.createWhereClause(env,query.where,policy);
+		let w=this.createWhereClause(env,query.where,policies);
 		let changes;
 
 		if (w.getJoins().length) {
@@ -514,19 +529,20 @@ export default class Table {
 			return this.performQueryInsertIntoValues(env,query);
 		}
 
-		let policy=this.getApplicablePolicy(env,"create");
 		let set=query.set;
 		if (!set || !Object.keys(set).length)
 			throw new Error("Can't insert empty set");
+
+		let policies=this.assertApplicablePolicies(env,"create",Object.keys(set));
 
 		let unknown=arrayDifference(Object.keys(set),this.getFieldNames());
 		if (unknown.length)
 			throw new Error("Unknown fields for insert: "+String(unknown));
 
-		if (policy)
-			policy.assertFieldsWritable(Object.keys(set));
+		/*if (policy)
+			policy.assertFieldsWritable(Object.keys(set));*/
 
-		let w=this.createWhereClause(env,null,policy);
+		let w=this.createWhereClause(env,null,policies);
 		w.populateReversible(set);
 
 		if (!await w.match(set,"strict"))
@@ -583,11 +599,11 @@ export default class Table {
 	}
 
 	async queryCountFrom(env, query) {
-		let policy=this.getApplicablePolicy(env,"read");
+		let policies=this.assertApplicablePolicies(env,"read");
 		if (this.singleton)
 			return 1;
 
-		let w=this.createWhereClause(env,query.where,policy);
+		let w=this.createWhereClause(env,query.where,policies);
 		let s=
 			"SELECT COUNT(*) AS count FROM "+
 			this.qql.escapeId(this.getTable().name)+` `+
@@ -616,13 +632,15 @@ export default class Table {
 		if (includeRowPolicies) {
 			row.$policies=[];
 
-			let policy=this.getApplicablePolicy(env,"update");
-			if (policy) {
-				let pw=policy.getWhereClause().mapValues(v=>env.substituteVars(v));
-				if (await pw.match(row,"strict")) {
-					row.$policies.push({
-						operations: policy.operations
-					});
+			let policies=this.getApplicablePolicies(env,"update",[]);
+			if (policies) {
+				for (let policy of policies) {
+					let pw=policy.getWhereClause().mapValues(env.substituteVars);
+					if (await pw.match(row,"strict")) {
+						row.$policies.push({
+							operations: policy.operations
+						});
+					}
 				}
 			}
 		}
@@ -631,34 +649,13 @@ export default class Table {
 	}
 
 	async queryManyFrom(env, query) {
-		//console.log("******** yep running **********");
 		assertAllowedKeys(query,["select","unselect","manyFrom","limit","offset","where","include","sort"]);
-		let policy=this.getApplicablePolicy(env,"read");
 
-		let select=query.select;
-		if (!select) {
-			if (policy)
-				select=arrayIntersection(
-					policy.getReadFields(),
-					Object.keys(this.fields)
-				);
-
-			else
-				select=Object.keys(this.fields);
-		}
-
-		if (query.unselect)
-			select=arrayDifference(select,query.unselect);
-
-		if (policy)
-			policy.assertFieldsReadable(select);
-
-		for (let col of select)
-			if (!this.fields[col])
-				throw new Error("No such column: "+col);
+		let select=this.getFieldNames({include: query.select, exclude: query.unselect});
+		let policies=this.assertApplicablePolicies(env,"read",select);
 
 		//console.log(query.where);
-		let w=this.createWhereClause(env,query.where,policy);
+		let w=this.createWhereClause(env,query.where,policies);
 
 		let s=
 			"SELECT "+select.map(f=>this.escapedCanonicalFieldName(f)).join(",")+
@@ -839,18 +836,27 @@ export default class Table {
 		return 1;
 	}
 
-	getApplicablePolicy(env, operation) {
+	assertApplicablePolicies(env, operation, fieldNames) {
 		if (env.isRoot())
 			return;
 
-		let policies=this.policies;
+		let policies=this.getApplicablePolicies(env, operation, fieldNames);
 		if (!policies.length)
-			policies=this.getTable().policies;
+			throw new Error(operation+" on "+this.name+" not permitted with role "+env.getRole());
 
-		for (let policy of policies)
-			if (policy.match(operation,env.getRole()))
-				return policy;
+		return policies;
+	}
 
-		throw new Error(operation+" on "+this.name+" not permitted with role "+env.getRole());
+	getApplicablePolicies(env, operation, fieldNames) {
+		if (env.isRoot())
+			return;
+
+		let candPolicies=this.policies;
+		if (!candPolicies.length)
+			candPolicies=this.getTable().policies;
+
+		let policies=candPolicies.filter(p=>p.match(operation,env.getRole(),fieldNames));
+
+		return policies;
 	}
 }

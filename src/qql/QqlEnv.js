@@ -29,7 +29,7 @@ export default class QqlEnv extends CallableClass {
 		return this.env.role;
 	}
 
-	substituteVars(s) {
+	substituteVars=s=> {
 		if (typeof s!="string")
 			return s;
 

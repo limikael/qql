@@ -3,7 +3,7 @@ import {arrayify, arrayDifference, arrayIntersection} from "../utils/js-util.js"
 
 export default class Policy {
 	constructor({tableName, qql, operations, roles, where,
-			include, exclude, readonly, writable, ...extra}) {
+			include, exclude, ...extra}) {
 		if (Object.keys(extra).length)
 			throw new Error("Unknown policy params: "+String(Object.keys(extra)));
 
@@ -15,8 +15,6 @@ export default class Policy {
 
 		this.include=arrayify(include);
 		this.exclude=arrayify(exclude);
-		this.readonly=arrayify(readonly);
-		this.writable=arrayify(writable);
 
 		if (!this.roles.length)
 			throw new Error("roles required for policy");
@@ -29,12 +27,20 @@ export default class Policy {
 			throw new Error("Unknown policy operations: "+String(extraOps));
 	}
 
-	match(operation, role) {
+	match(operation, role, fieldNames) {
 		if (!this.operations.includes(operation))
 			return false;
 
 		if (!this.roles.includes(role))
 			return false;
+
+		if (!fieldNames)
+			fieldNames=this.qql.getTableByName(this.tableName).getFieldNames();
+
+		if (arrayDifference(fieldNames,this.getFieldNames()).length)
+			return false;
+
+		//console.log("matching role: ",role," fieldNames ",fieldNames," this fieldNames ",this.getFieldNames());
 
 		return true;
 	}
@@ -50,27 +56,7 @@ export default class Policy {
 		return this.whereClause; 
 	}
 
-	assertFieldsReadable(fields) {
-		let diff=arrayDifference(fields,this.getReadFields());
-		if (diff.length)
-			throw new Error(
-				"Not allowed to read from: "+String(diff)+
-				" on table: "+this.tableName+
-				" with roles: "+String(this.roles)
-			);
-	}
-
-	assertFieldsWritable(fields) {
-		let diff=arrayDifference(fields,this.getWriteFields());
-		if (diff.length)
-			throw new Error(
-				"Not allowed to write to: "+String(diff)+
-				" on table: "+this.tableName+
-				" with roles: "+String(this.roles)
-			);
-	}
-
-	getReadFields() {
+	getFieldNames() {
 		let table=this.qql.getTableByName(this.tableName);
 
 		let fields=this.include;
@@ -78,18 +64,6 @@ export default class Policy {
 			fields=Object.keys(table.fields);
 
 		fields=arrayDifference(fields,this.exclude);
-
-		return fields;
-	}
-
-	getWriteFields() {
-		let fields=this.getReadFields();
-
-		if (this.readonly.length)
-			fields=arrayDifference(fields,this.readonly);
-
-		if (this.writable.length)
-			fields=arrayIntersection(fields,this.writable);
 
 		return fields;
 	}

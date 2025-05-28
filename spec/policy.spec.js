@@ -64,10 +64,13 @@ describe("policy",()=>{
 						id: {type: "integer", pk: true, notnull: true},
 						title: {type: "text"},
 						user_id: {type: "reference", reference: "users"},
+						published: {type: "boolean", default: false},
+						private_notes: {type: "text"}
 					},
 
 					policies: [
 						{roles: ["admin"]},
+						{roles: ["user","public"], where: {published: true}, exclude: ["private_notes"]},
 						{roles: ["user"], where: {user_id: "$uid"}}
 					]
 				},
@@ -76,58 +79,18 @@ describe("policy",()=>{
 
 		await qql.migrate({log: ()=>{}});
 
-		await qql({insertInto: "posts", set: {title: "Hello one", user_id: 1}});
-		await qql({insertInto: "posts", set: {title: "Hello two", user_id: 2}});
+		await qql({insertInto: "posts", set: {title: "Hello one", user_id: 1, private_notes: "p1"}});
+		await qql({insertInto: "posts", set: {title: "Hello one published", user_id: 1, published: true, private_notes: "p2"}});
+		await qql({insertInto: "posts", set: {title: "Hello two", user_id: 2, private_notes: "p3"}});
+		await qql({insertInto: "posts", set: {title: "Hello two published", user_id: 2, published: true, private_notes: "p4"}});
 
-		expect((await qql({manyFrom: "posts"})).length).toEqual(2);
+		expect((await qql({manyFrom: "posts"})).length).toEqual(4);
 
-		expect((await qql.env({uid: 1, role: "user"}).query({manyFrom: "posts"})).length).toEqual(1);
-		expect((await qql.env({role: "admin"}).query({manyFrom: "posts"})).length).toEqual(2);
+		expect((await qql.env({uid: 1, role: "user"}).query({manyFrom: "posts"})).map(r=>r.title)).toEqual(["Hello one","Hello one published"]);
+		expect((await qql.env({uid: 1, role: "user"}).query({manyFrom: "posts", unselect: ["private_notes"]})).map(r=>r.title)).toEqual(["Hello one","Hello one published","Hello two published"]);
+		expect((await qql.env({role: "admin"}).query({manyFrom: "posts"})).length).toEqual(4);
+		expect((await qql.env({role: "public"}).query({manyFrom: "posts", unselect: ["private_notes"]})).map(r=>r.title)).toEqual(["Hello one published","Hello two published"]);
 	});
-
-	/*it("checks for just one policy per role",async ()=>{
-		expect(()=>{
-			let qql=createQql({
-				driver: new QqlDriverSqlite(new sqlite3.Database(':memory:')),
-				tables: {
-					users: {
-						fields: {
-							id: {type: "integer", pk: true, notnull: true},
-							name: {type: "text"},
-							password: {type: "text"}
-						},
-
-						policies: [
-							{roles: ["admin","user"], operations: []},
-							{roles: ["user"], operations: ["read"]}
-						]
-					},
-				}
-			});
-		}).toThrow(new Error("Ambigous policy for role: user, table: users"));
-	});
-
-	it("checks for just one policy per role",async ()=>{
-		expect(()=>{
-			let qql=createQql({
-				driver: new QqlDriverSqlite(new sqlite3.Database(':memory:')),
-				tables: {
-					users: {
-						fields: {
-							id: {type: "integer", pk: true, notnull: true},
-							name: {type: "text"},
-							password: {type: "text"}
-						},
-
-						policies: [
-							{roles: ["admin","user"], operations: []},
-							{roles: ["user"], operations: ["read"]}
-						]
-					},
-				}
-			});
-		}).toThrow(new Error("Ambigous policy for role: user, table: users"));
-	});*/
 
 	it("handles role fields",async ()=>{
 		let qql=createQql({
@@ -146,7 +109,6 @@ describe("policy",()=>{
 							roles: ["user"], 
 							operations: ["read","create","update"], 
 							exclude: ["password"], 
-							readonly: ["id"]
 						}
 					]
 				},
@@ -160,7 +122,7 @@ describe("policy",()=>{
 
 		await qql({insertInto: "users", set: {name: "micke", password: "qwerty"}});
 
-		let res=await qql.env({role: "user"}).query({manyFrom: "users"});
+		let res=await qql.env({role: "user"}).query({manyFrom: "users", unselect: ["password"]});
 		//console.log(res);
 
 		res=await qql({manyFrom: "users"});
@@ -170,24 +132,24 @@ describe("policy",()=>{
 
 		await expectAsync(
 			uqql({manyFrom: "users", select: ["password"]})
-		).toBeRejectedWithError("Not allowed to read from: password on table: users with roles: user");
+		).toBeRejectedWithError("read on users not permitted with role user");
 
 		await qql.env({role: "user"}).query({insertInto: "users", set: {name: "micke"}});
 		expect(await qql({countFrom: "users"})).toEqual(2);
 
 		await expectAsync(
 			uqql({insertInto: "users", set: {name: "micke", password: "awef"}})
-		).toBeRejectedWithError("Not allowed to write to: password on table: users with roles: user");
+		).toBeRejectedWithError("create on users not permitted with role user");
 
-		await expectAsync(
-			uqql({insertInto: "users", set: {name: "micke", id: 5}})
-		).toBeRejectedWithError("Not allowed to write to: id on table: users with roles: user");
+		uqql({insertInto: "users", set: {name: "micke", id: 5}})
 
 		await uqql({update: "users", set: {name: "micke2"}});
 
 		await expectAsync(
 			uqql({update: "users", set: {name: "micke2", password: "123"}})
-		).toBeRejectedWithError("Not allowed to write to: password on table: users with roles: user");
+		).toBeRejectedWithError("update on users not permitted with role user");
+
+		await uqql({update: "users", set: {name: "micke2"}});
 
 		//await qql.env({role: "user"}).query({insertInto: "users", set: {name: "micke", password: "qwerty", id: 5}});
 	});
@@ -211,7 +173,11 @@ describe("policy",()=>{
 		expect((await mickeQql({manyFrom: "agents"})).length).toEqual(1);
 		expect((await mickeQql({manyFrom: "resources"})).length).toEqual(2);
 
-		await mickeQql({insertInto: "agents", set:{name: "hello"/*, xyz: 3*/}});
+		await mickeQql({insertInto: "agents", set:{name: "hello", owner_id: mickeId}});
+
+		await expectAsync(
+			mickeQql({insertInto: "agents", set:{name: "hello"}})
+		).toBeRejectedWithError("Inserted data not allowed");
 
 		await expectAsync(
 			qql({insertInto: "agents", set: {xyz: 123}})
@@ -275,7 +241,7 @@ describe("policy",()=>{
 			mickeQql({insertInto: "agents", set: {name: "new agent", owner_id: micke2Id}})
 		).toBeRejectedWithError("Inserted data not allowed");
 
-		let newId=await mickeQql({insertInto: "agents", set: {name: "new agent", /*owner_id: mickeId*/}});
+		let newId=await mickeQql({insertInto: "agents", set: {name: "new agent", owner_id: mickeId}});
 		let newRecord=await qql({oneFrom: "agents", where: {id: newId}});
 
 		//console.log(newRecord);
