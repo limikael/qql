@@ -67,4 +67,18 @@ export default class Policy {
 
 		return fields;
 	}
+
+	static getNarrowestFieldSet(policies) {
+		let fieldNames;
+
+		for (let policy of policies) {
+			if (fieldNames)
+				fieldNames=arrayIntersection(fieldNames,policy.getFieldNames());
+
+			else
+				fieldNames=policy.getFieldNames();
+		}
+
+		return fieldNames;
+	}
 }

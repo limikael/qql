@@ -127,7 +127,7 @@ export default class QqlRestServer {
                     item=await env.query({
                         oneFrom: argv[0],
                         where: {[pkField]: argv[1]},
-                        includeRowPolicies: !!url.searchParams.get("includeRowPolicies")
+                        includePolicyInfo: !!url.searchParams.get("includePolicyInfo")
                     });
                 }
 

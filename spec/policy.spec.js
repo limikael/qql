@@ -79,17 +79,28 @@ describe("policy",()=>{
 
 		await qql.migrate({log: ()=>{}});
 
-		await qql({insertInto: "posts", set: {title: "Hello one", user_id: 1, private_notes: "p1"}});
-		await qql({insertInto: "posts", set: {title: "Hello one published", user_id: 1, published: true, private_notes: "p2"}});
-		await qql({insertInto: "posts", set: {title: "Hello two", user_id: 2, private_notes: "p3"}});
-		await qql({insertInto: "posts", set: {title: "Hello two published", user_id: 2, published: true, private_notes: "p4"}});
+		await qql({insertInto: "posts", set: {id: 1, title: "Hello one", user_id: 1, private_notes: "p1"}});
+		await qql({insertInto: "posts", set: {id: 2, title: "Hello one published", user_id: 1, published: true, private_notes: "p2"}});
+		await qql({insertInto: "posts", set: {id: 3, title: "Hello two", user_id: 2, private_notes: "p3"}});
+		await qql({insertInto: "posts", set: {id: 4, title: "Hello two published", user_id: 2, published: true, private_notes: "p4"}});
 
 		expect((await qql({manyFrom: "posts"})).length).toEqual(4);
 
-		expect((await qql.env({uid: 1, role: "user"}).query({manyFrom: "posts"})).map(r=>r.title)).toEqual(["Hello one","Hello one published"]);
+		expect((await qql.env({uid: 1, role: "user"}).query({manyFrom: "posts"})).map(r=>r.title)).toEqual(["Hello one","Hello one published","Hello two published"]);
+		expect((await qql.env({uid: 1, role: "user"}).query({manyFrom: "posts", select: ["title","private_notes"]})).map(r=>r.title)).toEqual(["Hello one","Hello one published"]);
 		expect((await qql.env({uid: 1, role: "user"}).query({manyFrom: "posts", unselect: ["private_notes"]})).map(r=>r.title)).toEqual(["Hello one","Hello one published","Hello two published"]);
 		expect((await qql.env({role: "admin"}).query({manyFrom: "posts"})).length).toEqual(4);
 		expect((await qql.env({role: "public"}).query({manyFrom: "posts", unselect: ["private_notes"]})).map(r=>r.title)).toEqual(["Hello one published","Hello two published"]);
+
+		expect((await qql.env({role: "public"}).query({manyFrom: "posts"})).length).toEqual(2);
+
+		let r;
+		r=await qql.env({uid: 1, role: "user"}).query({oneFrom: "posts", selectAllReadable: true, includePolicyInfo: true, where: {id: 1}});
+		//console.log(r);
+		expect(Object.keys(r)).toEqual(['id', 'title', 'user_id', 'published', 'private_notes', "$policyInfo"]);
+		r=await qql.env({uid: 1, role: "user"}).query({oneFrom: "posts", selectAllReadable: true, includePolicyInfo: true, where: {id: 4}});
+		//console.log(r);
+		expect(Object.keys(r)).toEqual(['id', 'title', 'user_id', 'published', "$policyInfo"]);
 	});
 
 	it("handles role fields",async ()=>{

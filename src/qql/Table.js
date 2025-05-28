@@ -82,19 +82,6 @@ export default class Table {
 					qql: this.qql
 				}));
 			}
-
-			/*let rolesSeen=[];
-			for (let policy of this.policies) {
-				if (arrayIntersection(rolesSeen,policy.roles).length) {
-					let m="Ambigous policy for role: "+
-						String(arrayIntersection(rolesSeen,policy.roles))+", "+
-						"table: "+this.name;
-
-					throw new Error(m);
-				}
-
-				rolesSeen.push(...policy.roles);
-			}*/
 		}
 	}
 
@@ -619,43 +606,89 @@ export default class Table {
 	}
 
 	async queryOneFrom(env, query) {
-		let includeRowPolicies=query.includeRowPolicies;
+		let includePolicyInfo=query.includePolicyInfo;
 
 		delete query.oneFrom;
-		delete query.includeRowPolicies;
+		delete query.includePolicyInfo;
 
-		let rows=await this.queryManyFrom(env, query);
+		let select;
+		if (query.selectAllReadable) {
+			let policies=this.getApplicablePolicies(env,"read",[]);
+			let w=this.createWhereClause(env,query.where,policies);
+			let s=
+				"SELECT * "+
+				" FROM "+
+				this.qql.escapeId(this.getTable().name)+` `+
+				w.getJoinClause()+" "+
+				w.getWhereClause()+" "+
+				"LIMIT 1";
+			let rows=await this.qql.runQuery(s,w.getValues(),"rows");
+			if (!rows.length)
+				return;
+
+			let row=rows[0];
+			select=[]; 
+
+			//console.log("actual row",row);
+
+			for (let policy of policies) {
+				//console.log(policy.where);
+				let pw=policy.getWhereClause().mapValues(env.substituteVars);
+				if (await pw.match(row,"strict"))
+					select.push(...policy.getFieldNames());
+			}
+
+			select=arrayUnique(select);
+			if (!select.length)
+				throw new Error("No readable fields???");
+
+			delete query.selectAllReadable;
+		}
+
+		let rows=await this.queryManyFrom(env, {select, ...query});
 		if (!rows.length)
 			return null;
 
 		let row=rows[0];
-		if (includeRowPolicies) {
-			row.$policies=[];
+		if (includePolicyInfo) {
+			if (!env.isChecked())
+				throw new Error("Can't include policies, not checked env.");
 
-			let policies=this.getApplicablePolicies(env,"update",[]);
-			if (policies) {
-				for (let policy of policies) {
+			let policyInfo={read: false, update: false, delete: false, readFields: [], updateFields: []};
+			for (let policy of this.policies) {
+				if (policy.roles.includes(env.getRole())) {
 					let pw=policy.getWhereClause().mapValues(env.substituteVars);
 					if (await pw.match(row,"strict")) {
-						row.$policies.push({
-							operations: policy.operations
-						});
+						for (let op of policy.operations) {
+							policyInfo[op]=true;
+							if (["read","update"].includes(op))
+								policyInfo[op+"Fields"].push(...policy.getFieldNames());
+						}
 					}
 				}
 			}
+
+			policyInfo.readFields=arrayUnique(policyInfo.readFields);
+			policyInfo.updateFields=arrayUnique(policyInfo.updateFields);
+
+			row.$policyInfo=policyInfo;
 		}
 
 		return row;
 	}
 
-	need to fix default selected fields here...
+	//need to fix default selected fields here...
 
 	async queryManyFrom(env, query) {
 		assertAllowedKeys(query,["select","unselect","manyFrom","limit","offset","where","include","sort"]);
 
-		let select=this.getFieldNames({include: query.select, exclude: query.unselect});
-		//console.log("select: ",select);
+		let select=query.select;
+		if (env.isChecked() && !select) {
+			let readPolicies=this.getApplicablePolicies(env,"read",[]);
+			select=Policy.getNarrowestFieldSet(readPolicies);
+		}
 
+		select=this.getFieldNames({include: select, exclude: query.unselect});
 		let policies=this.assertApplicablePolicies(env,"read",select);
 
 		//console.log(query.where);

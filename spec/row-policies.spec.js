@@ -19,10 +19,11 @@ describe("row policies",()=>{
 						id: {type: "integer", pk: true, notnull: true},
 						title: {type: "text"},
 						user_id: {type: "reference", reference: "users"},
+						private_info: {type: "text"}
 					},
 					policies: [
-						{roles: ["user"], operations: ["read"]},
-						{roles: ["user"], operations: ["update"], where: {user_id: "$uid"}},
+						{roles: ["user"], operations: ["read"], exclude: "private_info"},
+						{roles: ["user"], operations: ["update","read"], where: {user_id: "$uid"}},
 					]
 				},
 			}
@@ -39,11 +40,27 @@ describe("row policies",()=>{
 		let u1qql=qql.env({role: "user", uid: 1});
 		let u2qql=qql.env({role: "user", uid: 2});
 
-		let r1=await u1qql({oneFrom: "posts", where: {user_id: 1}, includeRowPolicies: true});
-		expect(r1.$policies.length).toEqual(1);
+		let r1=await u1qql({oneFrom: "posts", where: {user_id: 1}, includePolicyInfo: true});
+		//console.log(r1.$policyInfo);
+		expect(r1.$policyInfo).toEqual({
+			read: true,
+			update: true,
+			delete: false,
+			readFields: [ 'id', 'title', 'user_id', 'private_info' ],
+			updateFields: [ 'id', 'title', 'user_id', 'private_info' ]
+		});
 
-		let r2=await u1qql({oneFrom: "posts", where: {user_id: 2}, includeRowPolicies: true});
-		expect(r2.$policies.length).toEqual(0);
+		let r2=await u1qql({oneFrom: "posts", where: {user_id: 2}, includePolicyInfo: true});
+		//console.log(r2.$policyInfo);
+		expect(r2.$policyInfo).toEqual({
+			read: true,
+			update: false,
+			delete: false,
+			readFields: [ 'id', 'title', 'user_id' ],
+			updateFields: []
+		});
+
+		//expect(r2.$policies.length).toEqual(0);
 
 		//console.log(await qql({oneFrom: "posts", where: {user_id: 2}, includeRowPolicies: true}));
 

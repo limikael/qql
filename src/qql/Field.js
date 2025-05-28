@@ -71,65 +71,6 @@ export default class Field {
 		return eq;
 	}
 
-	/*createWhereExpression(value, op) {
-		if (!op)
-			op="=";
-
-		if (value===undefined)
-			throw new Error("Undefined in where expression");
-
-		if (op=="=" && Array.isArray(value)) {
-			return {
-				sql: this.qql.escapeId(this.name)+" IN ("+qfill(value.length)+")",
-				params: value
-			};
-		}
-
-		else {
-			switch (op) {
-				case "~":
-					if (value===null)
-						throw new Error("Illegal comparision with null value");
-
-					return {
-						sql: "UPPER("+this.qql.escapeId(this.name)+") LIKE ?",
-						params: ["%"+String(value).toUpperCase()+"%"]
-					}
-					break;
-
-				case "=":
-					if (value===null) {
-						return {
-							sql: this.qql.escapeId(this.name)+"is null",
-							params: []
-						}
-					}
-
-					return {
-						sql: this.qql.escapeId(this.name)+op+"?",
-						params: [value]
-					}
-					break;
-
-				case ">":
-				case "<":
-				case ">=":
-				case "<=":
-					if (value===null)
-						throw new Error("Illegal comparision with null value");
-
-					return {
-						sql: this.qql.escapeId(this.name)+op+"?",
-						params: [value]
-					}
-					break;
-
-				default:
-					throw new Error("Unknown op: "+op);
-			}
-		}
-	}*/
-
 	represent(data) {
 		switch (this.type) {
 			case "json":
