@@ -599,10 +599,10 @@ export default class Table {
 	}
 
 	async queryCountFrom(env, query) {
-		let policies=this.assertApplicablePolicies(env,"read");
 		if (this.singleton)
 			return 1;
 
+		let policies=this.assertApplicablePolicies(env,"read",[]);
 		let w=this.createWhereClause(env,query.where,policies);
 		let s=
 			"SELECT COUNT(*) AS count FROM "+
@@ -648,10 +648,14 @@ export default class Table {
 		return row;
 	}
 
+	need to fix default selected fields here...
+
 	async queryManyFrom(env, query) {
 		assertAllowedKeys(query,["select","unselect","manyFrom","limit","offset","where","include","sort"]);
 
 		let select=this.getFieldNames({include: query.select, exclude: query.unselect});
+		//console.log("select: ",select);
+
 		let policies=this.assertApplicablePolicies(env,"read",select);
 
 		//console.log(query.where);
