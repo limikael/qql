@@ -626,7 +626,7 @@ export default class Table {
 			if (!rows.length)
 				return;
 
-			let row=rows[0];
+			let row=this.presentRow(rows[0]);
 			select=[]; 
 
 			//console.log("actual row",row);
@@ -641,9 +641,9 @@ export default class Table {
 			select=arrayUnique(select);
 			if (!select.length)
 				throw new Error("No readable fields???");
-
-			delete query.selectAllReadable;
 		}
+
+		delete query.selectAllReadable;
 
 		let rows=await this.queryManyFrom(env, {select, ...query});
 		if (!rows.length)
@@ -719,15 +719,7 @@ export default class Table {
 
 		//console.log(s);
 		let rows=await this.qql.runQuery(s,w.getValues(),"rows");
-		rows=rows.map(row=>{
-			for (let fieldName in this.fields) {
-				let field=this.fields[fieldName];
-				if (row.hasOwnProperty(fieldName))
-					row[fieldName]=field.present(row[fieldName]);
-			}
-
-			return row;
-		});
+		rows=rows.map(row=>this.presentRow(row));
 
 		for (let includeName in query.include)
 			await this.handleInclude(env,rows,includeName,query.include[includeName]);
@@ -739,6 +731,16 @@ export default class Table {
 		}
 
 		return rows;
+	}
+
+	presentRow(row) {
+		for (let fieldName in row) {
+			let field=this.fields[fieldName];
+			if (field)
+				row[fieldName]=field.present(row[fieldName]);
+		}
+
+		return row;
 	}
 
 	findReferencingField(referenceTableName) {

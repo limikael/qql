@@ -279,7 +279,7 @@ export default class WhereClause {
 				break;
 
 			case "$eq":
-				return record[fieldName]==val;
+				return record[fieldName]===val;
 				break;
 
 			case "$ne":
