@@ -301,11 +301,7 @@ export default class Table {
 		if (this.singleton)
 			throw new Error("singleton update not implemented for now");
 
-		/*if (query.return=="item")
-			throw new Error("can't return item from update");*/
-
 		assertAllowedKeys(query,["update","where","set","return"]);
-		//let policies=this.getApplicablePolicies(env,"update");
 
 		let policies=this.assertApplicablePolicies(env,"update",Object.keys(query.set));
 
@@ -396,7 +392,7 @@ export default class Table {
 			throw new Error("Can't delete from a singleton view");
 
 		assertAllowedKeys(query,["deleteFrom","where","return"]);
-		let policies=this.getApplicablePolicies(env,"delete");
+		let policies=this.assertApplicablePolicies(env,"delete");
 
 		let affectedRow;
 		if (query.return=="item") {

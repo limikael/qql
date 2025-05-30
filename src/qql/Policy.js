@@ -34,11 +34,13 @@ export default class Policy {
 		if (!this.roles.includes(role))
 			return false;
 
-		if (!fieldNames)
-			fieldNames=this.qql.getTableByName(this.tableName).getFieldNames();
+		if (operation!="delete") {
+			if (!fieldNames)
+				fieldNames=this.qql.getTableByName(this.tableName).getFieldNames();
 
-		if (arrayDifference(fieldNames,this.getFieldNames()).length)
-			return false;
+			if (arrayDifference(fieldNames,this.getFieldNames()).length)
+				return false;
+		}
 
 		//console.log("matching role: ",role," fieldNames ",fieldNames," this fieldNames ",this.getFieldNames());
 
