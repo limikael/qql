@@ -158,6 +158,14 @@ export default class WhereClause {
 				this.values.push(...val);
 			}
 
+			else if (op=="$nin") {
+				if (!Array.isArray(val))
+					throw new Error("Expected array for in operator");
+
+				this.clauses.push(escapedFieldName+" NOT IN ("+qfill(val.length)+")");
+				this.values.push(...val);
+			}
+
 			else if (op=="$eq" && val===null) {
 				this.clauses.push(escapedFieldName+" IS NULL ");
 			}
@@ -308,6 +316,10 @@ export default class WhereClause {
 
 			case "$in":
 				return val.includes(record[fieldName]);
+				break;
+
+			case "$nin":
+				return (!val.includes(record[fieldName]));
 				break;
 
 			default:
