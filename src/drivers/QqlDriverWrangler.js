@@ -1,7 +1,7 @@
 import {runCommand} from "../utils/node-util.js";
-import {QqlDriverBase} from "./QqlDriverBase.js";
+import QqlDriverBase from "./QqlDriverBase.js";
 
-export class WranglerQqlDriver extends QqlDriverBase {
+export default class QqlDriverWrangler extends QqlDriverBase {
 	constructor({d1Binding, local, remote, wranglerJsonPath, wranglerBin, wranglerEnv}) {
 		super({escapeFlavor: "sqlite"});
 
