@@ -11,12 +11,14 @@
     "sqlstring-sqlite": "^0.1.1"
   },
   "devDependencies": {
+    "better-sqlite3": "^12.1.1",
     "jasmine": "^5.1.0",
     "sql.js": "^1.10.3",
     "sqlite3": "^5.1.7"
   },
   "exports": {
     ".": "./src/lib/exports.js",
-    "./react": "./src/lib/qql-react.jsx"
+    "./react": "./src/lib/qql-react.jsx",
+    "./wrangler-driver": "./src/drivers/QqlDriverWrangler.js"
   }
 }

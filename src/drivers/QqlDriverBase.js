@@ -34,4 +34,15 @@ export default class QqlDriverBase {
 				throw new Error("unknown escape flavor: "+this.escapeFlavor);
 		}
 	}
+
+	async queries(queries, returnType) {
+		//console.log("qs: ",queries);
+
+		let res=[];
+
+		for (let query of queries)
+			res.push(await this.query(query,[],returnType));
+
+		return res;
+	}
 }

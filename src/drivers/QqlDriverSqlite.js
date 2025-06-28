@@ -1,27 +1,10 @@
+import QqlDriverBase from "./QqlDriverBase.js";
 import sqliteSqlstring from "sqlstring-sqlite";
 
-export default class QqlDriverSqlite {
+export default class QqlDriverSqlite extends QqlDriverBase {
 	constructor(sqlite) {
+		super({escapeFlavor: "sqlite"});
 		this.sqlite=sqlite;
-	}
-
-	escapeId(id) {
-		return sqliteSqlstring.escapeId(id);
-	}
-
-	escapeValue(value) {
-		return sqliteSqlstring.escape(value);
-	}
-
-	async queries(queries, returnType) {
-		//console.log("qs: ",queries);
-
-		let res=[];
-
-		for (let query of queries)
-			res.push(await this.query(query,[],returnType));
-
-		return res;
 	}
 
 	query(query, params, returnType) {
