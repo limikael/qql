@@ -7,6 +7,16 @@ export default class QqlDriverBetterSqlite3 extends QqlDriverBase {
 	}
 
 	async query(query, params, returnType) {
+		params=params.map(p=>{
+			if (p===true)
+				p=1;
+
+			if (p===false)
+				p=0;
+
+			return p;
+		});
+
 		let statement=this.db.prepare(query).bind(...params);
 		let info;
 
