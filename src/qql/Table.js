@@ -134,7 +134,16 @@ export default class Table {
 	static fromDescribeRows(name, rows, qql) {
 		let fields={};
 		for (let row of rows) {
+			/*if (row.name=="published") {
+				console.log("**** creating from describe row: ",JSON.stringify(row));
+			}*/
+
 			let field=Field.fromDescribeRow(row,qql);
+
+			/*if (row.name=="published") {
+				console.log("**** created: ",JSON.stringify(field));
+			}*/
+
 			fields[field.name]=field;
 		}
 

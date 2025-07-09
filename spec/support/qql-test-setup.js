@@ -23,10 +23,8 @@ export function describeForEachDriver(description, fn) {
 	for (let driver of drivers) {
 		describe(description,()=>{
 			beforeEach(async ()=>{
-				for (let tableName of await driver.getTableNames())
-					await driver.query(`DROP TABLE ${driver.escapeId(tableName)}`,[]);
-
-				//await dropExisting(driver);
+				for (let table of await driver.describe())
+					await driver.query(`DROP TABLE ${driver.escapeId(table.name)}`,[]);
 			});
 
 			fn(driver);

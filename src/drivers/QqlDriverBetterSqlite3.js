@@ -1,5 +1,5 @@
 import QqlDriverBase from "./QqlDriverBase.js";
-import {sqliteGetDescribeRows} from "./sqlite-driver-common.js";
+import {sqliteDescribe} from "./sqlite-driver-common.js";
 
 export default class QqlDriverBetterSqlite3 extends QqlDriverBase {
 	constructor(db) {
@@ -7,15 +7,8 @@ export default class QqlDriverBetterSqlite3 extends QqlDriverBase {
 		this.db=db;
 	}
 
-	async getTableNames() {
-		let nameRows=await this.query("SELECT name FROM sqlite_schema",[],"rows");
-		nameRows=nameRows.filter(row=>!row.name.startsWith("_cf"));
-
-		return nameRows.map(row=>row.name);
-	}
-
-	async getDescribeRows(tableName) {
-		return await sqliteGetDescribeRows(this,tableName);
+	async describe() {
+		return await sqliteDescribe(this);
 	}
 
 	async query(query, params, returnType) {

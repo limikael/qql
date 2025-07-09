@@ -25,6 +25,16 @@ export default class QqlDriverPostgres extends QqlDriverBase {
 		return this.connection;
 	}
 
+	async describe() {
+		let tableNames=await this.getTableNames();
+		let res=[];
+
+		for (let tableName of tableNames)
+			res.push({name: tableName, fields: await this.getDescribeRows(tableName)});
+
+		return res;
+	}
+
 	async getTableNames() {
 		let nameRows=await this.query(
 			"SELECT table_schema, table_name "+
@@ -56,13 +66,22 @@ export default class QqlDriverPostgres extends QqlDriverBase {
 
 		let pkCols=pkRows.map(r=>r.column_name);
 
-		return rows.map(row=>({
-			name: row.column_name,
-			notnull: row.is_nullable=="NO",
-			type: row.data_type,
-			pk: pkCols.includes(row.column_name),
-			defaultSql: row.column_default //this.escapeValue(row.column_default)
-		}));
+		return rows.map(row=>{
+			let describeRow={
+				name: row.column_name,
+				notnull: row.is_nullable=="NO",
+				type: row.data_type,
+				pk: pkCols.includes(row.column_name),
+			}
+
+			if (describeRow.pk)
+				describeRow.defaultSql=null;
+
+			else
+				describeRow.defaultSql=row.column_default;
+
+			return describeRow;
+		});
 	}
 
 	query=async (query, params=[], returnType)=>{

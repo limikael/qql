@@ -9,16 +9,16 @@ export default class QqlAnalysis {
 		this.driver=this.qql.driver;
 	}
 
-	async getTableNames() {
+	/*async getTableNames() {
 		return await this.driver.getTableNames();
-	}
+	}*/
 
 	async load() {
 		this.tables=[];
-		for (let tableName of await this.getTableNames()) {
-			let describeRows=await this.driver.getDescribeRows(tableName);
+		for (let table of await this.qql.driver.describe()) {
+			let describeRows=table.fields;//await this.driver.getDescribeRows(tableName);
 			//console.log(describeRows);
-			this.tables[tableName]=Table.fromDescribeRows(tableName,describeRows,this.qql);
+			this.tables[table.name]=Table.fromDescribeRows(table.name,describeRows,this.qql);
 		}
 	}
 

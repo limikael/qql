@@ -7,12 +7,15 @@ export default class QqlDriverBase {
 	}
 
 	quote(val, quoteChar) {
-		if (val===null || val===undefined)
-			return "null";
-
 	    if (!quoteChar || quoteChar.length !== 1) {
 	        throw new Error("quoteChar must be a single character: ' \" or `");
 	    }
+
+		if (val===null || val===undefined)
+			return "null";
+
+	    if (["number","boolean"].includes(typeof val))
+	    	return String(val);
 
 	    // Double the quote char inside the string
 	    const escaped = val.replaceAll(quoteChar, quoteChar + quoteChar);

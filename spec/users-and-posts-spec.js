@@ -1,11 +1,12 @@
-import sqlite3 from "sqlite3";
+//import sqlite3 from "sqlite3";
+//import QqlDriverSqlite from "../src/drivers/QqlDriverSqlite.js";
+import {describeForEachDriver} from "./support/qql-test-setup.js";
 import {createQql} from "../src/qql/Qql.js";
-import QqlDriverSqlite from "../src/drivers/QqlDriverSqlite.js";
 
-describe("qql",()=>{
+describeForEachDriver("qql",(driver)=>{
 	it("works",async()=>{
 		let qql=createQql({
-			driver: new QqlDriverSqlite(new sqlite3.Database(':memory:')),
+			driver: driver, //new QqlDriverSqlite(new sqlite3.Database(':memory:')),
 			tables: {
 				users: {
 					fields: {
@@ -28,8 +29,10 @@ describe("qql",()=>{
 		});
 
 		await qql.migrate({log: ()=>{}});
-		await qql.migrate({log: ()=>{}});
-//		qql=qql.role("admin");
+
+		let logSpy=jasmine.createSpy();
+		await qql.migrate({log: logSpy});
+		expect(logSpy).not.toHaveBeenCalled();
 
 		await qql.query({deleteFrom: "users"});
 		await qql.query({deleteFrom: "posts"});

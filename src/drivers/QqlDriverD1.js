@@ -1,10 +1,15 @@
 import QqlDriverBase from "./QqlDriverBase.js";
+import {sqliteDescribe} from "./sqlite-driver-common.js";
 
 export default class QqlDriverD1 extends QqlDriverBase {
 	constructor(d1) {
 		super({escapeFlavor: "sqlite"});
 
 		this.d1=d1;
+	}
+
+	async describe() {
+		return await sqliteDescribe(this);
 	}
 
 	async query(query, params, returnType) {

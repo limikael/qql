@@ -3,6 +3,9 @@ import {qfill} from "../lib/qql-util.js";
 
 export default class Field {
 	constructor(spec) {
+		/*if (spec.name=="published")
+			console.log("field ctor: ",JSON.stringify(spec));*/
+
 		Object.assign(this,{
 			qql: spec.qql,
 			name: spec.name,
@@ -11,17 +14,19 @@ export default class Field {
 			notnull: !!spec.notnull,
 		});
 
-		if (spec.defaultSql) {
-			this.defaultSql=spec.defaultSql;
-		}
+		if (!this.pk) {
+			if (spec.defaultSql) {
+				this.defaultSql=spec.defaultSql;
+			}
 
-		else {
-			let def=spec.default;
-			if (!def)
-				def=null;
-			this.default=jsonClone(def);
-			this.haveDefault=true;
-			this.defaultSql=this.qql.escapeValue(spec.default);
+			else {
+				let def=spec.default;
+				if (!def)
+					def=null;
+				this.default=jsonClone(def);
+				this.haveDefault=true;
+				this.defaultSql=this.qql.escapeValue(spec.default);
+			}
 		}
 
 		this.sqlType();
@@ -65,7 +70,7 @@ export default class Field {
 		);
 
 		if (!eq) {
-			//console.log("diff: ",this,that);
+			console.log("diff: ",JSON.stringify(this),JSON.stringify(that));
 		}
 
 		return eq;
@@ -110,20 +115,24 @@ export default class Field {
 			name: row.name,
 			type: t,
 			pk: !!row.pk,
-			defaultSql: row.dflt_value
+			defaultSql: row.defaultSql
 		});
 	}
 
 	getCreateSql() {
 		let s=this.qql.escapeId(this.name)+" ";
 		s+=this.sqlType();
-		s+=((this.notnull||this.pk)?" not null":" null");
-		if (this.defaultSql!=="null")
-			s+=" default "+this.defaultSql;
 
 		if (this.pk) {
-			s+=" primary key";
+			s+=" primary key not null";
 			s=this.qql.driver.makeFieldDefAutoIncrement(s);
+		}
+
+		else {
+			s+=this.notnull?" not null":" null";
+
+			//if (this.defaultSql!=="null")
+			s+=" default "+this.defaultSql;
 		}
 
 		return s;

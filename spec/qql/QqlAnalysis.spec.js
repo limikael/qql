@@ -2,57 +2,44 @@ import {describeForEachDriver} from "../support/qql-test-setup.js";
 import QqlAnalysis from "../../src/qql/QqlAnalysis.js";
 import {createQql} from "../../src/qql/Qql.js";
 
-describeForEachDriver("qql",(driver)=>{
+describeForEachDriver("qql analysis",(driver)=>{
 	it("can get existing table names",async ()=>{
 		let analysis=new QqlAnalysis({qql:{driver}});
-		for (let tableName of await analysis.getTableNames())
-			await driver.query(`DROP TABLE ${driver.escapeId(tableName)}`,[]);
+		for (let table of await analysis.driver.describe())
+			await driver.query(`DROP TABLE ${driver.escapeId(table.name)}`,[]);
 
 		await driver.query("CREATE TABLE hello (val INTEGER NOT NULL)",[]);
 		await driver.query("CREATE TABLE helloagain (val INTEGER NOT NULL)",[]);
 
-		let tableNames=await analysis.getTableNames();
-		expect(tableNames).toEqual(["hello","helloagain"]);
+		let tables=await analysis.driver.describe();
+		expect(tables.map(t=>t.name)).toEqual(["hello","helloagain"]);
 
-		for (let tableName of await analysis.getTableNames())
-			await driver.query(`DROP TABLE ${driver.escapeId(tableName)}`,[]);
+		for (let table of await driver.describe())
+			await driver.query(`DROP TABLE ${driver.escapeId(table.name)}`,[]);
 
-		tableNames=await analysis.getTableNames();
-		expect(tableNames).toEqual([]);
+		tables=await analysis.driver.describe();
+		expect(tables).toEqual([]);
 	});
 
 	it("can get table columns",async ()=>{
 		let analysis=new QqlAnalysis({qql:{driver}});
-		for (let tableName of await analysis.getTableNames())
-			await driver.query(`DROP TABLE ${driver.escapeId(tableName)}`,[]);
 
-		await driver.query("CREATE TABLE hello (id integer not null primary key, val INTEGER NOT NULL, val2 INTEGER)",[]);
-		let describeRows=await driver.getDescribeRows("hello");
-		expect(describeRows).toEqual([
-		  {
-		    name: 'id',
-		    notnull: true,
-		    type: 'integer',
-		    pk: true,
-		    defaultSql: null
-		  },
-		  {
-		    name: 'val',
-		    notnull: true,
-		    type: 'integer',
-		    pk: false,
-		    defaultSql: null
-		  },
-		  {
-		    name: 'val2',
-		    notnull: false,
-		    type: 'integer',
-		    pk: false,
-		    defaultSql: null
-		  }
+		await driver.query("CREATE TABLE hello (id integer not null primary key, val INTEGER NOT NULL, val2 BOOLEAN DEFAULT true)",[]);
+		await driver.query("CREATE TABLE hello2 (id integer not null primary key, otherval INTEGER NOT NULL)",[]);
+		let describe=await driver.describe();
+		//console.log(JSON.stringify(describe));
+
+		expect(describe).toEqual([
+			{"name":"hello","fields":[
+				{"name":"id","notnull":true,"type":"integer","pk":true,"defaultSql":null},
+				{"name":"val","notnull":true,"type":"integer","pk":false,"defaultSql":null},
+				{"name":"val2","notnull":false,"type":"boolean","pk":false,"defaultSql":"true"}
+			]},
+			{"name":"hello2","fields":[
+				{"name":"id","notnull":true,"type":"integer","pk":true,"defaultSql":null},
+				{"name":"otherval","notnull":true,"type":"integer","pk":false,"defaultSql":null}
+			]}
 		]);
-
-		//console.log(describeRows);
 	});
 
 	it("can analyze",async ()=>{

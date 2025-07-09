@@ -1,5 +1,6 @@
 import {runCommand} from "../utils/node-util.js";
 import QqlDriverBase from "./QqlDriverBase.js";
+import {sqliteDescribe} from "./sqlite-driver-common.js";
 
 export default class QqlDriverWrangler extends QqlDriverBase {
 	constructor({d1Binding, local, remote, wranglerJsonPath, wranglerBin, wranglerEnv}) {
@@ -25,6 +26,10 @@ export default class QqlDriverWrangler extends QqlDriverBase {
 		this.remote=remote;
 	}
 
+	async describe() {
+		return await sqliteDescribe(this);
+	}
+
 	query=async(query, params, returnType)=>{
 		if (params.length)
 			throw new Error("params not supported by wrangler driver");
@@ -34,6 +39,8 @@ export default class QqlDriverWrangler extends QqlDriverBase {
 	}
 
 	queries=async(queries, returnType)=>{
+		//console.log("doing queries: "+queries.length+" local: "+this.local);
+
 		if (!["rows","none"].includes(returnType))
 			throw new Error("Only rows and none supported as return type.");
 
