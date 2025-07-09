@@ -1,2 +1,4 @@
 attic
 node_modules
+spec/drivers/test.db
+pnpm-*.yaml

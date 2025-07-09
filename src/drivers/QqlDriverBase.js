@@ -6,6 +6,19 @@ export default class QqlDriverBase {
 		this.escapeFlavor=escapeFlavor;
 	}
 
+	quote(val, quoteChar) {
+		if (val===null || val===undefined)
+			return "null";
+
+	    if (!quoteChar || quoteChar.length !== 1) {
+	        throw new Error("quoteChar must be a single character: ' \" or `");
+	    }
+
+	    // Double the quote char inside the string
+	    const escaped = val.replaceAll(quoteChar, quoteChar + quoteChar);
+	    return `${quoteChar}${escaped}${quoteChar}`;
+	}
+
 	escapeId(id) {
 		switch (this.escapeFlavor) {
 			case "sqlite":
@@ -14,6 +27,11 @@ export default class QqlDriverBase {
 
 			case "mysql":
 				return sqlstring.escapeId(id);
+				break;
+
+			case "postgres":
+				return this.quote(id,'"');
+				break;
 
 			default:
 				throw new Error("unknown escape flavor: "+this.escapeFlavor);
@@ -30,6 +48,10 @@ export default class QqlDriverBase {
 				return sqlstring.escape(value);
 				break;
 
+			case "postgres":
+				return this.quote(value,"'");
+				break;
+
 			default:
 				throw new Error("unknown escape flavor: "+this.escapeFlavor);
 		}
@@ -44,5 +66,13 @@ export default class QqlDriverBase {
 			res.push(await this.query(query,[],returnType));
 
 		return res;
+	}
+
+	makeFieldDefAutoIncrement(s) {
+		return s;
+	}
+
+	hasFeature() {
+		return false;
 	}
 }

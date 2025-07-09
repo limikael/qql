@@ -1,11 +1,10 @@
-import sqlite3 from "sqlite3";
-import QqlDriverSqlite from "../src/drivers/QqlDriverSqlite.js";
 import {createQql} from "../src/qql/Qql.js";
+import {describeForEachDriver} from "./support/qql-test-setup.js";
 
-describe("qql",()=>{
+describeForEachDriver("qql",(driver)=>{
 	it("works",async()=>{
 		let qql=createQql({
-			driver: new QqlDriverSqlite(new sqlite3.Database(':memory:')),
+			driver,
 			tables: {
 				users: {
 					fields: {

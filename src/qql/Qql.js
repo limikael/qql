@@ -72,25 +72,9 @@ export default class Qql extends CallableClass {
 	}
 
 	async analyze() {
-		let nameRows=await this.runQuery("SELECT name FROM sqlite_schema",[],"rows");
-		nameRows=nameRows.filter(row=>!row.name.startsWith("_cf"));
-		//console.log(nameRows);
-
-		let infoQueries=[];
-		for (let nameRow of nameRows)
-			infoQueries.push(`PRAGMA table_info (\`${nameRow.name}\`)`)
-
-		//console.log(infoQueries);
-
-		let existingTables={};
-		let infoRes=await this.runQueries(infoQueries,"rows");
-		for (let i in nameRows) {
-			let tableName=nameRows[i].name;
-			//console.log(infoRes[i]);
-			existingTables[tableName]=Table.fromDescribeRows(tableName,infoRes[i],this);
-		}
-
-		return new QqlAnalysis({tables: existingTables});
+		let qqlAnalysis=new QqlAnalysis({qql: this});
+		await qqlAnalysis.load();
+		return qqlAnalysis;
 	}
 
 	/*force, test, dryRun, risky*/
@@ -102,17 +86,7 @@ export default class Qql extends CallableClass {
 		//log("Migrating schema...");
 
 		let analysis=await this.analyze();
-
-		//console.log(analysis.tables);
-
-		let migrationQueries=[];
-		for (let tableName in this.tables) {
-			//console.log("Table: "+tableName);
-			migrationQueries=[
-				...migrationQueries,
-				...this.tables[tableName].getMigrationQueries(analysis.tables[tableName])
-			];
-		}
+		let migrationQueries=analysis.getMigrationQueries();
 
 		if (dryRun)
 			log(migrationQueries);

@@ -117,12 +117,14 @@ export default class Field {
 	getCreateSql() {
 		let s=this.qql.escapeId(this.name)+" ";
 		s+=this.sqlType();
-		s+=(this.notnull?" not null":" null");
+		s+=((this.notnull||this.pk)?" not null":" null");
 		if (this.defaultSql!=="null")
 			s+=" default "+this.defaultSql;
 
-		if (this.pk)
+		if (this.pk) {
 			s+=" primary key";
+			s=this.qql.driver.makeFieldDefAutoIncrement(s);
+		}
 
 		return s;
 	}

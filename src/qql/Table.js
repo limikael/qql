@@ -253,19 +253,19 @@ export default class Table {
 			.filter(fieldName=>existingFieldNames.includes(fieldName));
 
 		if (copyFields.length) {
-			let copyS=copyFields.map(s=>"`"+s+"`").join(",");
-			let sq=`INSERT INTO \`${this.name+"_new"}\` (${copyS}) SELECT ${copyS} FROM \`${this.name}\``;
+			let copyS=copyFields.map(s=>this.qql.escapeId(s)).join(",");
+			let sq=`INSERT INTO ${this.qql.escapeId(this.name+"_new")} (${copyS}) SELECT ${copyS} FROM ${this.qql.escapeId(this.name)}`;
 			queries.push(sq);
 		}
 
 		if (test) {
-			queries.push(`DROP TABLE \`${this.name+"_new"}\``);
+			queries.push(`DROP TABLE ${this.qql.escapeId(this.name+"_new")}`);
 		}
 
 		else {
-			queries.push(`ALTER TABLE \`${this.name}\` RENAME TO \`${this.name+"_old"}\``);
-			queries.push(`ALTER TABLE \`${this.name+"_new"}\` RENAME TO \`${this.name}\``);
-			queries.push(`DROP TABLE \`${this.name+"_old"}\``);
+			queries.push(`ALTER TABLE ${this.qql.escapeId(this.name)} RENAME TO ${this.qql.escapeId(this.name+"_old")}`);
+			queries.push(`ALTER TABLE ${this.qql.escapeId(this.name+"_new")} RENAME TO ${this.qql.escapeId(this.name)}`);
+			queries.push(`DROP TABLE ${this.qql.escapeId(this.name+"_old")}`);
 		}
 
 		return queries;
@@ -277,7 +277,7 @@ export default class Table {
 			parts.push(this.fields[fieldName].getCreateSql());
 		}
 
-		return `CREATE TABLE \`${this.name+suffix}\` (${parts.join(",")})`;
+		return `CREATE TABLE ${this.qql.escapeId(this.name+suffix)} (${parts.join(",")})`;
 	}
 
 	async getIdsByWhere(w) {
@@ -548,18 +548,42 @@ export default class Table {
 			new Array(values.length).fill("?").join(",")+
 			")";
 
-		let id=await this.qql.runQuery(s,values,"id");
 		if (!query.return)
 			query.return="id";
 
+		let queryReturn="none";
+
+		//console.log("ret: "+query.return);
 		switch (query.return) {
 			case "id":
-				return id;
+			case "item":
+				if (this.qql.driver.hasFeature("returning")) {
+					s+=" RETURNING "+this.qql.driver.escapeId(this.getPrimaryKeyFieldName());
+					queryReturn="rows";
+				}
+
+				else
+					queryReturn="id";
+				break;
+		}
+
+		//console.log(s);
+		let queryResult=await this.qql.runQuery(s,values,queryReturn);
+
+		switch (query.return) {
+			case "id":
+				if (queryReturn=="rows")
+					queryResult=queryResult[0][this.getPrimaryKeyFieldName()];
+
+				return queryResult;
 				break;
 
 			case "item":
+				if (queryReturn=="rows")
+					queryResult=queryResult[0][this.getPrimaryKeyFieldName()];
+
 				let items=await this.queryManyFrom(env,{
-					where: {[this.getPrimaryKeyFieldName()]: id},
+					where: {[this.getPrimaryKeyFieldName()]: queryResult},
 					limit: 1
 				});
 				return items[0];
