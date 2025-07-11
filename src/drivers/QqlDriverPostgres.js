@@ -18,12 +18,12 @@ export default class QqlDriverPostgres extends QqlDriverBase {
 		this.pool=pool;
 	}
 
-	async obtainConnection() {
+	/*async obtainConnection() {
 		if (!this.connection)
 			this.connection=await this.pool.connect();
 
 		return this.connection;
-	}
+	}*/
 
 	async describe() {
 		let tableNames=await this.getTableNames();
@@ -85,9 +85,10 @@ export default class QqlDriverPostgres extends QqlDriverBase {
 	}
 
 	query=async (query, params=[], returnType)=>{
-		let connection=await this.obtainConnection();
+		/*let connection=await this.obtainConnection();
+		let res=await connection.query(convertQuestionMarksToDollar(query),params);*/
 
-		let res=await connection.query(convertQuestionMarksToDollar(query),params);
+		let res=await this.pool.query(convertQuestionMarksToDollar(query),params);
 
 		switch (returnType) {
 			case "rows":
