@@ -9,3 +9,4 @@ export {default as QqlRestServer} from "../net/QqlRestServer.js";
 export {default as QqlServer} from "../net/QqlServer.js";
 export {default as Qql, createQql} from "../qql/Qql.js";
 export {default as QqlClient, createQqlClient} from "../net/QqlClient.js";
+export * from "./qql-hydrate.js";
