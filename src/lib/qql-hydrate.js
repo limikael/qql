@@ -117,12 +117,14 @@ function qqlHydrateOne({qql, data, parentArray, parentObject, oneFrom, where, in
 		}
 
 		else if (includeQuery.oneFrom) {
-			qqlHydrateOne({
-				qql,
-				objectFactory,
-				data: data[includeField],
-				...includeQuery
-			});
+			if (data[includeField]) {
+				qqlHydrateOne({
+					qql,
+					objectFactory,
+					data: data[includeField],
+					...includeQuery
+				});
+			}
 		}
 
 		else {

@@ -14,7 +14,8 @@ describe("qql-hydrate",()=>{
 					fields: {
 						id: {type: "integer", pk: true, notnull: true},
 						name: {type: "text"},
-						description: {type: "text"}
+						description: {type: "text"},
+						venue_id: {reference: "venues"}
 					}
 				},
 				addons: {
@@ -28,6 +29,12 @@ describe("qql-hydrate",()=>{
 					fields: {
 						id: {type: "integer", pk: true, notnull: true},
 						addon_id: {type: "reference", reference: "addons"},
+						name: {type: "text"},
+					}
+				},
+				venues: {
+					fields: {
+						id: {type: "integer", pk: true, notnull: true},
 						name: {type: "text"},
 					}
 				}
@@ -213,8 +220,10 @@ describe("qql-hydrate",()=>{
 	it("works with oneFrom",async ()=>{
 		//let qql=await quickminCreateTestQql("quickmin.yaml");
 
+		await qql({insertInto: "venues", set: {id: 123, name: "the venue"}});
+
 		await qql({insertInto: "experiences", set: {id: 1, name: "My Experience 1"}});
-		await qql({insertInto: "experiences", set: {id: 2, name: "My Experience 2"}});
+		await qql({insertInto: "experiences", set: {id: 2, name: "My Experience 2", venue_id: 123}});
 		await qql({insertInto: "experiences", set: {id: 3, name: "My Experience 3"}});
 
 		await qql({insertInto: "addons", set: {id: 1, experience_id: 1, name: "addon 1"}});
@@ -232,7 +241,26 @@ describe("qql-hydrate",()=>{
 		add.experience.name="changed name";
 		await add.experience.save();
 
-		let exp=await qql({oneFrom: "experiences"});
+		let exp;
+		exp=await qqlHydrateQuery({
+			qql: qql,
+			oneFrom: "experiences", 
+			where: {id: 2},
+			include: {
+				"venue": {oneFrom: "venues"}
+			}
+		});
+		expect(exp.name).toEqual("My Experience 2");
+		expect(exp.venue.name).toEqual("the venue");
+
+		exp=await qqlHydrateQuery({
+			qql: qql,
+			oneFrom: "experiences", 
+			where: {id: 1},
+			include: {
+				"venue": {oneFrom: "venues"}
+			}
+		});
 		expect(exp.name).toEqual("changed name");
 	});
 });
