@@ -3,12 +3,15 @@ import BetterSqlite3Database from "better-sqlite3";
 import QqlDriverSqlite from "../../src/drivers/QqlDriverSqlite.js";
 import QqlDriverBetterSqlite3 from "../../src/drivers/QqlDriverBetterSqlite3.js";
 import QqlDriverPostgres from "../../src/drivers/QqlDriverPostgres.js";
+import QqlDriverLibSql from "../../src/drivers/QqlDriverLibSql.js";
+import {createClient} from "@libsql/client";
 import pg from 'pg';
 
 export function describeForEachDriver(description, fn) {
 	let drivers=[
 		new QqlDriverSqlite(new sqlite3.Database(":memory:")),
-		new QqlDriverBetterSqlite3(new BetterSqlite3Database(":memory:"))
+		new QqlDriverBetterSqlite3(new BetterSqlite3Database(":memory:")),
+		new QqlDriverLibSql({client: createClient({url: "file::memory:"})})
 	];
 
 	//let PG_CONNECTION;

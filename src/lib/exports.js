@@ -5,6 +5,7 @@ export {default as QqlDriverSqlExec} from "../drivers/QqlDriverSqlExec.js";
 export {default as QqlDriverBetterSqlite3} from "../drivers/QqlDriverBetterSqlite3.js";
 export {default as QqlDriverD1} from "../drivers/QqlDriverD1.js";
 export {default as QqlDriverPostgres} from "../drivers/QqlDriverPostgres.js";
+export {default as QqlDriverLibSql} from "../drivers/QqlDriverLibSql.js";
 export {default as QqlRestServer} from "../net/QqlRestServer.js";
 export {default as QqlServer} from "../net/QqlServer.js";
 export {default as Qql, createQql} from "../qql/Qql.js";
