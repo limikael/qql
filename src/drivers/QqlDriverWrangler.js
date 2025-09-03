@@ -3,7 +3,7 @@ import QqlDriverBase from "./QqlDriverBase.js";
 import {sqliteDescribe} from "./sqlite-driver-common.js";
 
 export default class QqlDriverWrangler extends QqlDriverBase {
-	constructor({d1Binding, local, remote, wranglerJsonPath, wranglerBin, wranglerEnv}) {
+	constructor({d1Binding, local, remote, wranglerJsonPath, env, wranglerBin, wranglerEnv}) {
 		super({escapeFlavor: "sqlite"});
 
 		if (!d1Binding)
@@ -18,6 +18,7 @@ export default class QqlDriverWrangler extends QqlDriverBase {
 		if (!wranglerEnv)
 			wranglerEnv=process.env;
 
+		this.env=env;
 		this.wranglerBin=wranglerBin;
 		this.wranglerEnv=wranglerEnv;
 		this.wranglerJsonPath=wranglerJsonPath;
@@ -62,7 +63,10 @@ export default class QqlDriverWrangler extends QqlDriverBase {
     	if (this.remote)
     		args.push("--remote")
 
-    	//console.log("wrangler db:",args);
+    	if (this.env)
+    		args.push("--env",this.env);
+
+    	//console.log("wrangler db args:",args);
     	//process.exit();
 
 		let out=await runCommand(this.wranglerBin,args,{
