@@ -131,6 +131,8 @@ function qqlHydrateOne({qql, data, parentArray, parentObject, oneFrom, where, in
 			throw new Error("Strange include query");
 		}
 	}
+
+	return data;
 }
 
 function qqlHydrateMany({qql, data, manyFrom, where, include, via, objectFactory, parentObject}) {
@@ -190,20 +192,20 @@ function qqlHydrateMany({qql, data, manyFrom, where, include, via, objectFactory
 
 	appendFunction(data,"saveNewChildren",saveNewChildren);
 
+	return data;
 }
 
 export function qqlHydrateData(args) {
 	//console.log(args);
 
 	if (args.oneFrom)
-		qqlHydrateOne(args)
+		return qqlHydrateOne(args)
 
 	else if (args.manyFrom)
-		qqlHydrateMany(args)
+		return qqlHydrateMany(args)
 
 	else
 		throw new Error("unknown query for hydration");
-
 }
 
 export async function qqlHydrateQuery({qql, ...query}) {

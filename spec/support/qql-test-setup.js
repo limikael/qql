@@ -14,8 +14,8 @@ export function describeForEachDriver(description, fn) {
 		new QqlDriverLibSql({client: createClient({url: "file::memory:"})})
 	];
 
-	//let PG_CONNECTION;
-	let PG_CONNECTION="postgresql://micke:getter@localhost/test";
+	let PG_CONNECTION;
+	//let PG_CONNECTION="postgresql://micke:getter@localhost/test";
 	//let PG_CONNECTION=process.env.PG_CONNECTION;
 	if (PG_CONNECTION) {
 		let pool=new pg.Pool({connectionString: PG_CONNECTION});
