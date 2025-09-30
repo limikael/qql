@@ -1,3 +1,6 @@
+import {isClass} from "../utils/js-util.js";
+const pkFieldName="id";
+
 function appendFunction(target, name, fn) {
 	Object.defineProperty(target,name,{
 		enumeratable: false,
@@ -5,23 +8,7 @@ function appendFunction(target, name, fn) {
 	});
 }
 
-function qqlHydrateOne({qql, data, parentArray, parentObject, oneFrom, where, include, objectFactory, via}) {
-	let pkFieldName="id";
-	if (!include)
-		include={};
-
-	function getDataFieldNames() {
-		let fns=[];
-		for (let fid in data) {
-			if (fid!=pkFieldName && !Object.keys(include).includes(fid))
-				fns.push(fid)
-		}
-
-		return fns;
-	}
-
-	let fieldNames=getDataFieldNames();
-
+function hydrateSingleObject({qql, data, parentArray, parentObject, oneFrom, where, include, wrapper, via, fieldNames}) {
 	async function insert() {
 		function pushToParent() {
 			data.__tmp_id=crypto.randomUUID();
@@ -32,7 +19,7 @@ function qqlHydrateOne({qql, data, parentArray, parentObject, oneFrom, where, in
 			delete data.__tmp_id;
 		}
 
-		fieldNames=getDataFieldNames();
+		//fieldNames=getDataFieldNames();
 		let set=Object.fromEntries(fieldNames.map(f=>[f,data[f]]));
 
 		if (via) {
@@ -107,9 +94,10 @@ function qqlHydrateOne({qql, data, parentArray, parentObject, oneFrom, where, in
 		let includeQuery=include[includeField];
 
 		if (includeQuery.manyFrom) {
-			qqlHydrateMany({
+			//console.log(includeQuery);
+			data[includeField]=qqlHydrateMany({
 				qql,
-				objectFactory,
+				wrapper,
 				data: data[includeField],
 				parentObject: data,
 				...includeQuery
@@ -120,7 +108,7 @@ function qqlHydrateOne({qql, data, parentArray, parentObject, oneFrom, where, in
 			if (data[includeField]) {
 				qqlHydrateOne({
 					qql,
-					objectFactory,
+					wrapper,
 					data: data[includeField],
 					...includeQuery
 				});
@@ -131,35 +119,66 @@ function qqlHydrateOne({qql, data, parentArray, parentObject, oneFrom, where, in
 			throw new Error("Strange include query");
 		}
 	}
+}
+
+function qqlHydrateOne({qql, data, parentArray, parentObject, oneFrom, where, include, wrapper, via, hydrate}) {
+	if (!hydrate)
+		return data;
+
+	if (!include)
+		include={};
+
+	let fieldNames=[];
+	for (let fid in data) {
+		if (fid!=pkFieldName && !Object.keys(include).includes(fid))
+			fieldNames.push(fid)
+	}
+
+	if (isClass(hydrate))
+		data=new hydrate(data, {qql});
+
+	else
+		data=hydrate(data, {qql});
+
+	if (wrapper)
+		data=wrapper(data);
+
+	hydrateSingleObject({qql, data, parentArray, parentObject, oneFrom, where, include, wrapper, via, fieldNames});
 
 	return data;
 }
 
-function qqlHydrateMany({qql, data, manyFrom, where, include, via, objectFactory, parentObject}) {
-	if (!objectFactory)
-		objectFactory=()=>new Object();
+function qqlHydrateMany({qql, data, manyFrom, where, include, via, wrapper, parentObject, hydrate}) {
+	if (!hydrate)
+		return data;
 
-	//console.log("many",data,"from",manyFrom);
+	let dataArray=[];
+	if (wrapper)
+		dataArray=wrapper(dataArray);
 
 	for (let item of data) {
-		qqlHydrateOne({
+		dataArray.push(qqlHydrateOne({
 			qql,
 			data: item, 
 			oneFrom: manyFrom,
 			where, 
 			include,
-			objectFactory,
-			parentArray: data,
+			wrapper,
+			parentArray: dataArray,
 			parentObject: parentObject,
-			via
-		});
+			via,
+			hydrate
+		}));
 	}
 
-	function newItem() {
+	function newItem(newObject) {
+		if (!newObject)
+			throw new Error("Need object for new");
+
 		if (parentObject && !via)
 			throw new Error("Need via to create object on parent");
 
-		let newObject=objectFactory();
+		//let newObject=objectFactory();
 		if (where) {
 			for (let k in where)
 				newObject[k]=where[k];
@@ -168,31 +187,32 @@ function qqlHydrateMany({qql, data, manyFrom, where, include, via, objectFactory
 		for (let k in include)
 			newObject[k]=[];
 
-		qqlHydrateOne({
+		return qqlHydrateOne({
 			qql,
 			data: newObject,
-			parentArray: data,
+			parentArray: dataArray,
 			parentObject: parentObject,
 			oneFrom: manyFrom,
 			where,
 			include,
-			objectFactory,
+			wrapper,
+			hydrate,
 			via
 		});
 
-		return newObject;
+		//return newObject;
 	}
 
-	appendFunction(data,"new",newItem);
+	appendFunction(dataArray,"new",newItem);
 
 	async function saveNewChildren() {
-		for (let item of data)
+		for (let item of dataArray)
 			await item.saveIfNew();
 	}
 
-	appendFunction(data,"saveNewChildren",saveNewChildren);
+	appendFunction(dataArray,"saveNewChildren",saveNewChildren);
 
-	return data;
+	return dataArray;
 }
 
 export function qqlHydrateData(args) {
@@ -208,11 +228,43 @@ export function qqlHydrateData(args) {
 		throw new Error("unknown query for hydration");
 }
 
-export async function qqlHydrateQuery({qql, ...query}) {
-	let data=await qql(structuredClone(query));
-	qqlHydrateData({...query, qql, data});
+export function qqlHydrate(args) {
+	return qqlHydrateData(args);
+}
 
-	return data;
+export function qqlRemoveHydrate(query) {
+	let resultQuery={};
+	Object.assign(resultQuery,query);
+	delete resultQuery.hydrate;
+	delete resultQuery.wrapper;
+
+	if (resultQuery.include) {
+		let originalInclude=resultQuery.include;
+		resultQuery.include={};
+
+		for (let k in originalInclude)
+			resultQuery.include[k]=qqlRemoveHydrate(originalInclude[k]);
+	}
+
+	return resultQuery;
+}
+
+export function qqlIsHydrate(query) {
+	if (query.hydrate)
+		return true;
+
+	if (query.include)
+		for (let k in query.include)
+			if (qqlIsHydrate(query.include[k]))
+				return true;
+}
+
+export async function qqlHydrateQuery({qql, ...query}) {
+	//console.log(query);
+	let data=await qql(qqlRemoveHydrate(query));
+	//console.log(query);
+
+	return qqlHydrateData({...query, qql, data});
 }
 
 /*export function hydratingQql(qql) {

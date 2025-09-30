@@ -1,4 +1,5 @@
 import {objectifyArgs, CallableClass} from "../utils/js-util.js";
+import {qqlRemoveHydrate, qqlHydrateData, qqlIsHydrate} from "../lib/qql-hydrate.js";
 
 export default class QqlClient extends CallableClass {
 	constructor(...args) {
@@ -19,7 +20,7 @@ export default class QqlClient extends CallableClass {
 
 		let response=await this.fetch(this.url,{
 			method: "POST",
-			body: JSON.stringify(query),
+			body: JSON.stringify(qqlRemoveHydrate(query)),
 			headers: this.headers
 		});
 
@@ -28,7 +29,15 @@ export default class QqlClient extends CallableClass {
 		if (response.status<200 || response.status>=300)
 			throw new Error(await response.text());
 
-		return await response.json();
+		let data=await response.json();
+		if (!qqlIsHydrate(query))
+			return data;
+
+		return qqlHydrateData({
+			qql: this.query,
+			data,
+			...query
+		});
 	}
 }
 

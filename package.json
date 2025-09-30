@@ -16,7 +16,8 @@
     "jasmine": "^5.1.0",
     "pg": "^8.16.3",
     "sql.js": "^1.10.3",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "valtio": "^2.1.8"
   },
   "exports": {
     ".": "./src/lib/exports.js",

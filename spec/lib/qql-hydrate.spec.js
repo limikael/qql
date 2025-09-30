@@ -2,6 +2,7 @@ import {qqlHydrateQuery} from "../../src/lib/qql-hydrate.js";
 import {createQql} from "../../src/qql/Qql.js";
 import QqlDriverSqlite from "../../src/drivers/QqlDriverSqlite.js";
 import sqlite3 from "sqlite3";
+import {proxy, subscribe} from "valtio/vanilla";
 
 describe("qql-hydrate",()=>{
 	let qql;
@@ -57,7 +58,8 @@ describe("qql-hydrate",()=>{
 		let exp=await qqlHydrateQuery({
 			qql: qql,
 			oneFrom: "experiences",
-			where: {id:2}
+			where: {id:2},
+			hydrate: Object
 		});
 
 		exp.name="test";
@@ -82,14 +84,12 @@ describe("qql-hydrate",()=>{
 			qql: qql,
 			manyFrom: "experiences",
 			include: {
-				addons: {manyFrom: "addons", via: "experience_id"}
-			}
+				addons: {manyFrom: "addons", via: "experience_id",hydrate: Object}
+			},
+			hydrate: Object
 		});
 
-		//console.log(data);
 		expect(data[0].name).toEqual("My Experience 1");
-
-		//console.log(dataList.value);
 
 		data[0].description="hello";
 		await data[0].save();
@@ -112,10 +112,11 @@ describe("qql-hydrate",()=>{
 
 		let data=await qqlHydrateQuery({
 			qql: qql, 
-			manyFrom: "experiences"
+			manyFrom: "experiences",
+			hydrate: Object
 		});
 
-		let exp=data.new();
+		let exp=data.new({name: "hello"});
 
 		exp.name="hello";
 		await exp.save();
@@ -146,30 +147,31 @@ describe("qql-hydrate",()=>{
 			qql: qql, 
 			manyFrom: "experiences",
 			include: {
-				addons: {manyFrom: "addons", via: "experience_id", include: {
-					addon_options: {manyFrom: "addon_options", via: "addon_id"}
+				addons: {manyFrom: "addons", via: "experience_id", hydrate: Object, include: {
+					addon_options: {manyFrom: "addon_options", via: "addon_id", hydrate: Object}
 				}}
-			}
+			},
+			hydrate: Object
 		});
 
 		//console.log(JSON.stringify(data,null,2));
 
-		let firstNewAddon=data[0].addons.new();
-		firstNewAddon.name="first new addon";
+		let firstNewAddon=data[0].addons.new({name: "first new addon"});
+		//firstNewAddon.name="first new addon";
 		await firstNewAddon.save();
 
-		let secondNewAddon=data[1].addons.new();
-		secondNewAddon.name="second new addon";
+		let secondNewAddon=data[1].addons.new({name: "second new addon"});
+		//secondNewAddon.name="second new addon";
 		await secondNewAddon.save();
 
 		//console.log(await qql({manyFrom: "addons"}));
 		expect((await qql({manyFrom: "addons"})).length).toEqual(4);
 
-		let newAddon=data[0].addons.new();
-		newAddon.name="new addon";
+		let newAddon=data[0].addons.new({name: "new addon"});
+		//newAddon.name="new addon";
 
-		let newAddonOption=newAddon.addon_options.new();
-		newAddonOption.name="new addon option";
+		let newAddonOption=newAddon.addon_options.new({name: "new addon option"});
+		//newAddonOption.name="new addon option";
 		await newAddonOption.save();
 
 		await newAddon.save();
@@ -189,7 +191,7 @@ describe("qql-hydrate",()=>{
 		expect(newData[0].addons[3].addon_options[0].name).toEqual("new addon option");
 
 		//console.log(await qql({manyFrom: "experiences", include: {addons: {manyFrom: "addons"}}}));
-		//console.log(await qql({manyFrom: "addon_options"}));
+		//console.log(await qql({manyFrom: "addon_options"}));*/
 	});
 
 	it("can delete",async ()=>{
@@ -205,8 +207,9 @@ describe("qql-hydrate",()=>{
 		let data=await qqlHydrateQuery({
 			qql: qql,
 			manyFrom: "experiences",
+			hydrate: Object,
 			include: {
-				addons: {manyFrom: "addons", via: "experience_id"}
+				addons: {manyFrom: "addons", via: "experience_id", hydrate: Object}
 			}
 		});
 
@@ -232,8 +235,9 @@ describe("qql-hydrate",()=>{
 		let add=await qqlHydrateQuery({
 			qql: qql,
 			oneFrom: "addons",
+			hydrate: Object,
 			include: {
-				"experience": {oneFrom: "experiences"}
+				"experience": {oneFrom: "experiences", hydrate:Object}
 			}
 		});
 
@@ -245,9 +249,10 @@ describe("qql-hydrate",()=>{
 		exp=await qqlHydrateQuery({
 			qql: qql,
 			oneFrom: "experiences", 
+			hydrate: Object,
 			where: {id: 2},
 			include: {
-				"venue": {oneFrom: "venues"}
+				"venue": {oneFrom: "venues", hydrate: Object}
 			}
 		});
 		expect(exp.name).toEqual("My Experience 2");
@@ -262,5 +267,66 @@ describe("qql-hydrate",()=>{
 			}
 		});
 		expect(exp.name).toEqual("changed name");
+	});
+
+	it("can hydrate an object",async ()=>{
+		await qql({insertInto: "venues", set: {id: 123, name: "the venue"}});
+
+		class Venue {
+			constructor(data) {
+				Object.assign(this,data);
+			}
+
+			getNameWithDots() {
+				return this.name+"...";
+			}
+		}
+
+		let venue=await qqlHydrateQuery({qql, oneFrom: "venues", hydrate: Venue});
+		expect(venue.getNameWithDots()).toEqual("the venue...");
+		await venue.save();
+	});
+
+	it("works with just qql",async ()=>{
+		await qql({insertInto: "venues", set: {id: 123, name: "the venue"}});
+
+		class Venue {
+			constructor(data) {
+				Object.assign(this,data);
+			}
+
+			getNameWithDots() {
+				return this.name+"...";
+			}
+		}
+
+		let venue=await qql({oneFrom: "venues", hydrate: Venue});
+		expect(venue.getNameWithDots()).toEqual("the venue...");
+		await venue.save();
+
+		let venue2=await qql({oneFrom: "venues", hydrate: data=>new Venue(data)});
+		expect(venue2.getNameWithDots()).toEqual("the venue...");
+		await venue2.save();
+	});
+
+	it("works with valtio",async ()=>{
+		await qql({insertInto: "venues", set: {id: 123, name: "venue 1"}});
+		await qql({insertInto: "venues", set: {id: 124, name: "venue 2"}});
+
+		let called;
+
+		//let venues=proxy(await qql({manyFrom: "venues", hydrate: Object}));
+		let venues=await qql({manyFrom: "venues", hydrate: Object, wrapper: proxy});
+		subscribe(venues,()=>{
+			//console.log("hello");
+			called=true;
+		});
+
+		let newVenue=venues.new({name: "venue 3"});
+		await newVenue.save();
+
+		expect(called).toEqual(true);
+
+		//console.log(venues);
 	});
 });

@@ -110,3 +110,9 @@ export class CallableClass extends Function {
         return Object.setPrototypeOf(f, new.target.prototype);
     }
 }
+
+export function isClass(v) {
+    if (typeof v !== "function") return false;
+    const desc = Object.getOwnPropertyDescriptor(v, "prototype");
+    return !!desc && !desc.writable; // classes have non-writable prototype
+}

@@ -3,6 +3,7 @@ import mysqlSqlstring from "sqlstring";
 import QqlAnalysis from "./QqlAnalysis.js";
 import {objectifyArgs, CallableClass} from "../utils/js-util.js";
 import QqlEnv from "./QqlEnv.js";
+import {qqlIsHydrate, qqlRemoveHydrate, qqlHydrateData} from "../lib/qql-hydrate.js";
 
 export default class Qql extends CallableClass {
 	constructor(...args) {
@@ -99,6 +100,15 @@ export default class Qql extends CallableClass {
 	}
 
 	envQuery=async (env, query)=>{
+		if (qqlIsHydrate(query)) {
+			//console.log(query);
+			let data=await this.envQuery(env,qqlRemoveHydrate(query));
+			//console.log(query);
+
+			return qqlHydrateData({...query, qql: env, data});
+			//throw new Error("bla");
+		}
+
 		//console.log("q: ",query);
 		if (query.oneFrom) {
 			let table=this.tables[query.oneFrom];
