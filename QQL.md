@@ -8,7 +8,7 @@
 - [`deleteFrom`](#deletefrom) - Delete rows from a table.
 - [`where`](#where) - Filter which rows are selected, updated, or deleted.
 - [`select`](#select) - Choose which columns to return.
-- [`include`](#join) - Include related data.
+- [`include`](#include) - Include related data.
 - [`sort`](#orderby) - Sort data.
 - [`limit`](#limit) - Limit number of returned rows.
 - [`offset`](#offset) - Skip a number of rows before returning results.
